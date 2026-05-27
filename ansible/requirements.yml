@@ -27,7 +27,7 @@ roles:
   - name: scicore.slurm
     src: https://github.com/scicore-unibas-ch/ansible-role-slurm.git
     scm: git
-    version: ubuntu
+    version: master
 
   - name: willshersystems.sshd
     src: https://github.com/willshersystems/ansible-sshd.git
