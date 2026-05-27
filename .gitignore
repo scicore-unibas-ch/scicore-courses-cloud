@@ -43,6 +43,7 @@ go.mod
 go.sum
 
 opentofu/backup/
+ansible/inventory/group_vars/slurm_master/openstack_app_credential.yml
 ansible/roles/
 ansible/collections/
 .venv
