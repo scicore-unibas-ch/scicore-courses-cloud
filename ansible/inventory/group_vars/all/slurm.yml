@@ -1,23 +1,16 @@
 ---
 
-slurm_update_etc_hosts_file: true
-
-# point this var to a git repo if you have your slurm config in git
-# slurm_config_git_repo: ""
-
-# if you build your own deb packages from the official slurm tarbal you need to create a local acocunt for slurm
-# if you use the slurm package from official ubuntu repos you can set this to false because the slurm user is
-# created by the package installation
-slurm_create_local_account_and_group: true
+# configless
+slurm_submit_group: login_node
+slurm_workers_group: slurm_workers
+slurm_master_host: slurm-master
+slurm_dbd_host: "{{ slurm_master_host }}"
+slurm_conf_custom_template: slurm.conf.cloud.j2
+slurm_update_etc_hosts_file: false
 
 # by default the role will deploy a lua submit plugin which will automatically add the users to the slurm accounting db
 # Check "templates/job_submit.lua.j2" for details
 slurm_config_deploy_lua_submit_plugin: true
-
-# Use slurm configless https://slurm.schedmd.com/configless_slurm.html
-# This feature requires slurm 20.02 or higher
-# Only tested on RedHat systems but it should work on Ubuntu too if you install ubuntu20.02 or higher
-slurm_configless: false
 
 slurm_mariadb_custom_config: |
   [mysqld]
@@ -28,23 +21,6 @@ slurm_mariadb_custom_config: |
 
 # slurm cluster name as defined in slurm.cfg
 slurm_cluster_name: slurm-cluster
-
-# set this var to the ansible_hostname of the slurm-master
-slurm_master_host: slurm-master
-# set this var to the ansible_hostname of the slurm-dbd host (same as slurm-master by default)
-slurm_dbd_host: "{{ slurm_master_host }}"
-
-# group in your ansible inventory including all the slurm workers
-slurm_workers_group: slurm_workers
-
-# group in your ansible inventory including all the submit hosts
-slurm_submit_group: slurm_submit_hosts
-
-# this is the setting "StateSaveLocation" in slurm.conf
-slurm_slurmctld_spool_path: /var/spool/slurmctld
-
-# this is the setting "SlurmdSpoolDir" in slurm.conf
-slurm_slurmd_spool_path: /var/spool/slurmd
 
 # settings for the slurm accounting daemon
 slurm_slurmdbd_mysql_db_name: slurm
