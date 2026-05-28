@@ -1,0 +1,65 @@
+---
+
+# The portal hostname (the OOD role variable "servername") is derived at runtime
+# from the floating IP as an sslip.io name (e.g. 203-0-113-5.sslip.io) by
+# playbooks/ondemand.yml, because there is no DNS domain for the login node.
+# sslip.io resolves that name back to the IP, which lets certbot obtain a real
+# Let's Encrypt certificate over HTTP-01.
+#
+# To skip the runtime IP lookup, set the floating IP explicitly, e.g.:
+#   ood_public_ip: 203.0.113.5
+
+# Optional: a real email to register the Let's Encrypt account with (receives
+# cert-expiry notices). Leave it unset to register anonymously
+# (--register-unsafely-without-email) - fine here since certbot auto-renews.
+# ood_letsencrypt_email: you@example.com
+
+# Open OnDemand's Apache terminates TLS directly using the certbot-issued
+# certificate (no reverse proxy). The role's template always writes
+# "port: {{ httpd_port }}" into ood_portal.yml, and httpd_port defaults to 80 -
+# which would (wrongly) put the SSL VirtualHost on port 80. Set it to 443 so the
+# generated main vhost is <VirtualHost *:443> and the :80 vhost redirects to it.
+httpd_port: 443
+
+# With 'ssl' defined, ood-portal-generator adds SSLEngine + the cert paths and
+# the role enables mod_ssl. The cert lives under the "servername" lineage that
+# certbot creates in playbooks/ondemand.yml (fullchain already includes the
+# intermediate chain, so no SSLCertificateChainFile is needed).
+ssl:
+  - 'SSLCertificateFile {{ ssl_cert }}'
+  - 'SSLCertificateKeyFile {{ ssl_cert_key }}'
+ssl_cert: "/etc/letsencrypt/live/{{ servername }}/fullchain.pem"
+ssl_cert_key: "/etc/letsencrypt/live/{{ servername }}/privkey.pem"
+
+# Basic auth against PAM. The /etc/pam.d/ood service file and the apache PAM
+# module are set up in playbooks/ondemand.yml before this role reloads apache.
+# The default user_map_match ('.*') maps the authenticated REMOTE_USER directly
+# to the matching local Linux account (user01 .. userNN).
+httpd_auth:
+  - 'AuthType Basic'
+  - 'AuthName "Open OnDemand - course"'
+  - 'AuthBasicProvider PAM'
+  - 'AuthPAMService ood'
+  - 'RequestHeader unset Authorization'
+  - 'Require valid-user'
+
+# Wire Open OnDemand to the (configless) Slurm cluster. The login node is a
+# slurm submit host, so sbatch/squeue run locally as the user.
+clusters:
+  course: |
+    ---
+    v2:
+      metadata:
+        title: "Course Slurm Cluster"
+      login:
+        host: "{{ inventory_hostname }}"
+      job:
+        adapter: "slurm"
+        bin: "/usr/bin"
+      batch_connect:
+        basic:
+          script_wrapper: "%s"
+        vnc:
+          script_wrapper: "%s"
+
+# vim: tabstop=2 shiftwidth=2

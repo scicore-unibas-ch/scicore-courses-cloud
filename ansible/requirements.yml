@@ -34,6 +34,11 @@ roles:
     scm: git
     version: v0.27.1
 
+  - name: osc.open_ondemand
+    src: https://github.com/OSC/ood-ansible.git
+    scm: git
+    version: v4.2.0
+
   # - name: geerlingguy.docker
   #   version: 7.5.0
 

@@ -28,6 +28,8 @@ locals {
   login_node_ingress_rules = {
     ssh     = { port = 22, description = "allow ssh from internet" }
     rstudio = { port = 8787, description = "allow rstudio from internet" }
+    http    = { port = 80, description = "allow http for lets encrypt acme + redirect to https" }
+    https   = { port = 443, description = "allow https for open ondemand" }
   }
 }
 

@@ -4,3 +4,4 @@
 - import_playbook: configure.yml
 - import_playbook: cvmfs-presync.yml
 - import_playbook: rstudio.yml
+- import_playbook: ondemand.yml

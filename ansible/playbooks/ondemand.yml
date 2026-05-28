@@ -1,0 +1,140 @@
+---
+
+- name: Deploy Open OnDemand with Apache TLS termination (Let's Encrypt via certbot)
+  hosts: login_node
+  gather_facts: true
+  become: true
+
+  handlers:
+
+    - name: Restart apache2
+      ansible.builtin.service:
+        name: apache2
+        state: restarted
+
+  tasks:
+
+    # There is no DNS domain for the login node, so we build an sslip.io
+    # hostname from the floating IP (e.g. 203-0-113-5.sslip.io). sslip.io
+    # resolves it back to the IP, which lets certbot get a real Let's Encrypt
+    # cert over HTTP-01. 'servername' is the variable the Open OnDemand role
+    # reads; set_fact overrides the role default before the role runs.
+    - name: Determine the portal hostname (sslip.io)
+      tags: ood
+      block:
+
+        - name: Look up the login node public IP (skipped when ood_public_ip is set)
+          ansible.builtin.uri:
+            url: https://api.ipify.org?format=json
+            return_content: true
+          register: _ipify
+          when: ood_public_ip is not defined
+
+        - name: Set the Open OnDemand server hostname
+          ansible.builtin.set_fact:
+            servername: "{{ (ood_public_ip | default(_ipify.json.ip)) | replace('.', '-') }}.sslip.io"
+
+        - name: Show the portal hostname that will be used
+          ansible.builtin.debug:
+            msg: "Open OnDemand portal will be served at https://{{ servername }}"
+
+    # Must run before the Open OnDemand role configures apache with the PAM
+    # AuthBasicProvider directives, otherwise the apache config is invalid.
+    - name: Configure PAM basic auth for apache
+      tags: ood_pam
+      block:
+
+        # The Open OnDemand package depends on apache2, but we need it (and its
+        # a2enmod / apache2ctl helpers) earlier: to enable the PAM module below
+        # and so certbot's stop/start hooks have a service to act on.
+        - name: Install apache2 and the apache PAM authentication module
+          ansible.builtin.apt:
+            name:
+              - apache2
+              - libapache2-mod-authnz-pam
+            cache_valid_time: 600
+
+        - name: Enable the authnz_pam apache module
+          community.general.apache2_module:
+            name: authnz_pam
+            state: present
+          notify: Restart apache2
+
+        - name: Create the PAM service file used by open ondemand basic auth
+          ansible.builtin.copy:
+            dest: /etc/pam.d/ood
+            owner: root
+            group: root
+            mode: "0644"
+            content: |
+              # ansible managed - used by apache mod_authnz_pam (AuthPAMService ood)
+              auth     required pam_unix.so
+              account  required pam_unix.so
+          notify: Restart apache2
+
+        # pam_unix needs to read /etc/shadow (root:shadow 0640 on ubuntu) so the
+        # apache user must be a member of the shadow group. A full apache restart
+        # is required for the new group membership to take effect.
+        - name: Allow the apache user to read /etc/shadow via the shadow group
+          ansible.builtin.user:
+            name: www-data
+            groups: shadow
+            append: true
+          notify: Restart apache2
+
+    # Obtain the certificate before the role generates the SSL vhost, otherwise
+    # apache fails to start (missing cert files). certbot --standalone needs
+    # port 80 free, so the pre/post hooks stop/start apache; these hooks are
+    # saved into the renewal config and reused by the certbot systemd timer, so
+    # renewals are automatic (apache is only stopped briefly when a cert is due).
+    - name: Obtain the Let's Encrypt certificate with certbot
+      tags: certbot
+      block:
+
+        - name: Install certbot from the ubuntu repositories
+          ansible.builtin.apt:
+            name: certbot
+            cache_valid_time: 600
+
+        - name: Obtain the certificate for the portal hostname (standalone HTTP-01)
+          vars:
+            # Register with a real email if one was provided, otherwise anonymously
+            _certbot_reg_args: "{{ ['--email', ood_letsencrypt_email] if (ood_letsencrypt_email | default('') | length > 0) else ['--register-unsafely-without-email'] }}"
+          ansible.builtin.command:
+            argv: "{{ ['certbot', 'certonly', '--standalone', '--non-interactive', '--agree-tos', '--keep-until-expiring'] + _certbot_reg_args + ['--pre-hook', 'systemctl stop apache2', '--post-hook', 'systemctl start apache2', '--domain', servername] }}"
+            creates: "/etc/letsencrypt/live/{{ servername }}/fullchain.pem"
+
+    - name: Install and configure Open OnDemand
+      ansible.builtin.import_role:
+        name: osc.open_ondemand
+      tags: ood
+
+    # The role only templates /etc/ood/config/ood_portal.yml; it does not run the
+    # portal generator, so our servername / ssl / PAM auth settings are not
+    # applied to apache until update_ood_portal regenerates the vhost.
+    - name: Apply the Open OnDemand portal configuration to apache
+      tags: ood
+      block:
+
+        # The role only symlinks mods-enabled/ssl.load, which can leave mod_ssl
+        # effectively inactive (SSLEngine lives in an <IfModule mod_ssl.c> guard,
+        # so it is silently skipped and :443 serves plain HTTP). a2enmod ssl links
+        # both ssl.load and ssl.conf, properly activating TLS.
+        - name: Enable the apache ssl module
+          community.general.apache2_module:
+            name: ssl
+            state: present
+          notify: Restart apache2
+
+        - name: Disable the default apache site so the ood-portal vhost is authoritative
+          ansible.builtin.command: a2dissite 000-default
+          args:
+            removes: /etc/apache2/sites-enabled/000-default.conf
+          notify: Restart apache2
+
+        - name: Regenerate the apache vhost from ood_portal.yml
+          ansible.builtin.command: /opt/ood/ood-portal-generator/sbin/update_ood_portal
+          changed_when: true
+          notify: Restart apache2
+
+# vim: tabstop=2 shiftwidth=2
