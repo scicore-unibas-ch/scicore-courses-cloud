@@ -133,6 +133,8 @@ SlurmctldDebug=info
 SlurmctldLogFile=/var/log/slurm/slurmctld.log
 DebugFlags=backfill,cpu_bind,priority,reservation,selecttype,steps
 
+SlurmctldParameters=enable_configless
+
 #MailProg=/usr/bin/smail
 
 
@@ -153,15 +155,6 @@ CryptoType=crypto/munge
 
 DisableRootJobs=NO
 
-{% if slurm_openstack_cloud_reg_addrs %}
-# We use cloud_reg_addrs so slurmd reports the node ip to slurmctld on boot
-# This is not required when using neutron internal dns
-SlurmctldParameters=enable_configless,idle_on_node_suspend,cloud_reg_addrs
-{% else %}
-# We don't use cloud_reg_addrs option because we use the neutron internal dns
-SlurmctldParameters=enable_configless,idle_on_node_suspend
-{% endif %}
-
 ## Default options for jobs
 #
 DefMemPerCPU=1000
@@ -180,6 +173,10 @@ SuspendTimeout=180  #time between running SuspendProgram and the node being comp
 # This option has been removed in slurm 23.11 CommunicationParameters=NoAddrCache  # By default, Slurm will cache a node's network address after successfully establishing the node's network address. This option disables the cache and Slurm will look up the node's network address each time a connection is made. This is useful, for example, in a cloud environment where the node addresses come and go out of DNS
 SuspendExcParts=static  # nodes in these partition won't be suspended
 
-{{ local_slurm_nodes_and_partitions_config }}
+{% for host in groups['slurm_workers'] %}
+NodeName={{ host }} CPUs={{ hostvars[host]['ansible_processor_count'] }} Boards=1 SocketsPerBoard={{ hostvars[host]['ansible_processor_count'] }} CoresPerSocket={{ hostvars[host]['ansible_processor_threads_per_core'] }} ThreadsPerCore={{ hostvars[host]['ansible_processor_threads_per_core'] }} RealMemory={{ hostvars[host]['ansible_memtotal_mb'] }}
+{% endfor %}
+
+PartitionName=cloud State=UP Nodes=ALL Default=YES
 
 # vim: syntax=sh

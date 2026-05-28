@@ -1,15 +1,12 @@
 ---
 
-# configless
-slurm_submit_group: login_node
-slurm_workers_group: slurm_workers
+slurm_configless: true
+slurm_conf_custom_template: slurm.conf.course.j2
+
 slurm_master_host: slurm-master
-slurm_dbd_host: "{{ slurm_master_host }}"
-slurm_conf_custom_template: slurm.conf.cloud.j2
-slurm_update_etc_hosts_file: false
+slurm_update_etc_hosts_file: true
 
 # by default the role will deploy a lua submit plugin which will automatically add the users to the slurm accounting db
-# Check "templates/job_submit.lua.j2" for details
 slurm_config_deploy_lua_submit_plugin: true
 
 slurm_mariadb_custom_config: |
@@ -48,12 +45,3 @@ slurm_packages_slurmdbd:
 # slurm packages we install only in worker nodes
 slurm_packages_worker:
   - slurmd
-
-# Set to true when using slurm cloud scheduling without neutron internal dns
-# check templates/slurm.conf.j2.cloud.example for details on what this var is doing
-slurm_openstack_cloud_reg_addrs: false
-
-slurm_slurmd_systemd_override: |
-  [Unit]
-  #After=munge.service network-online.target remote-fs.target sssd.service
-  ConditionPathExists=
