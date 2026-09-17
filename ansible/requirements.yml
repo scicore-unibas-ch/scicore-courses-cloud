@@ -28,7 +28,7 @@ roles:
   - name: willshersystems.sshd
     src: https://github.com/willshersystems/ansible-sshd.git
     scm: git
-    version: v0.27.1
+    version: v0.34.0
 
   - name: osc.open_ondemand
     src: https://github.com/OSC/ood-ansible.git

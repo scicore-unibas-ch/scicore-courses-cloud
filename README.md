@@ -10,18 +10,30 @@ OpenTofu and ansible code used to boot and configure the infrastructure for the 
 
 Install OpenTofu using your preferred method (tested with version 1.9.1)
 
-### Install Ansible and Openstack client inside a python virtualenv
+### Install Ansible and Openstack client with uv
+
+We use [uv](https://docs.astral.sh/uv/) to install the python version and the
+python dependencies. Install uv if you don't have it yet:
+
+```bash
+$> curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+`ansible` requires python 3.12 or newer. uv downloads it if it's missing, so
+you don't need a system python of that version:
 
 ```bash
 $> git clone https://github.com/scicore-unibas-ch/scicore-courses-cloud.git
 $> cd scicore-courses-cloud
-$> python3 -m venv .venv
+$> uv venv --python 3.12 .venv
 $> source .venv/bin/activate
-$> pip install -U pip
-$> pip install -r ansible/requirements.txt
+$> uv pip install -r ansible/requirements.txt
 $> source ~/your/openstack-openrc.sh
 $> openstack server list
 ```
+
+The openstack client also reads `~/.config/openstack/clouds.yaml` instead of
+an openrc file; select an entry from it with `export OS_CLOUD=<cloud-name>`.
 
 ## Booting the machines (OpenTofu)
 
