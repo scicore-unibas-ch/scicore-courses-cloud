@@ -1,5 +1,5 @@
 # OpenStack image
-image_name = "Ubuntu 24.04 (Switch Cloud)"
+image_name = "Ubuntu 26.04 (Switch Cloud)"
 
 # login node
 login_node_flavor_name      = "c032r064"
