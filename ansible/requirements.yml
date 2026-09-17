@@ -1,6 +1,7 @@
 ---
 
-# ansible-galaxy role install -r requirements.yml -p roles/
+# ansible-galaxy install -r requirements.yml
+# (roles go to ./roles and collections to ./collections, see ansible.cfg)
 roles:
 
   - name: wf72.systemd_timesyncd
@@ -23,11 +24,6 @@ roles:
     version: master
 
   - name: mrlesmithjr.nfs-server
-
-  - name: scicore.slurm
-    src: https://github.com/scicore-unibas-ch/ansible-role-slurm.git
-    scm: git
-    version: master
 
   - name: willshersystems.sshd
     src: https://github.com/willshersystems/ansible-sshd.git
@@ -58,3 +54,10 @@ roles:
 
   # - name: robertdebock.cron
   #   version: 2.2.6
+
+collections:
+
+  # installs and configures Slurm (slurm_install role); pulls in ansible.mariadb
+  - name: https://github.com/pescobar/ansible-collection-slurm.git
+    type: git
+    version: master

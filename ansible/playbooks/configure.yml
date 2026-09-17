@@ -170,10 +170,15 @@
             user: ubuntu
             key: "{{ lookup('file', '~/.ansible/tmp/id_ed25519_ubuntu_login_node.pub') }}"
 
-    - name: Configure slurm if machine is in the slurm group
-      ansible.builtin.import_role:
-        name: scicore.slurm
-      when: "'slurm' in group_names"
-      tags: slurm
+# A separate play (not import_role + when): the role reads the munge key from
+# the controller once, which must not depend on which host comes first.
+- name: Install and configure slurm
+  hosts: slurm
+  gather_facts: true
+  become: true
+  tags: slurm
+
+  roles:
+    - pescobar.slurm.slurm_install
 
 # vim: tabstop=2 shiftwidth=2

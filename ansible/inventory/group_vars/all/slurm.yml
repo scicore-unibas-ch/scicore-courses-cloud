@@ -1,47 +1,24 @@
 ---
 
-slurm_configless: true
-slurm_conf_custom_template: slurm.conf.course.j2
+# Slurm is installed and configured by the pescobar.slurm collection
+# (slurm_install role): Ubuntu 26.04 packages, static config. The group
+# names are the tags the OpenTofu code puts on the VMs.
+slurm_install_controller_group: slurm_master
+slurm_install_workers_group: slurm_workers
+slurm_install_submit_group: slurm_submit_hosts
+slurm_install_manage_etc_hosts: true
 
-slurm_master_host: slurm-master
-slurm_update_etc_hosts_file: true
-
-# by default the role will deploy a lua submit plugin which will automatically add the users to the slurm accounting db
-slurm_config_deploy_lua_submit_plugin: true
-
-slurm_mariadb_custom_config: |
-  [mysqld]
-  innodb_buffer_pool_size={{ (ansible_memtotal_mb * 0.75) | int }}M
-  innodb_log_file_size=64M
-  innodb_lock_wait_timeout=900
-  max_allowed_packet=16M
-
-# slurm cluster name as defined in slurm.cfg
-slurm_cluster_name: slurm-cluster
+slurm_install_cluster_name: slurm-cluster
 
 # settings for the slurm accounting daemon
-slurm_slurmdbd_mysql_db_name: slurm
-slurm_slurmdbd_mysql_user: slurm
-slurm_slurmdbd_mysql_password: aadAD432saAdfaoiu
+# TODO: move to ansible-vault
+slurm_install_dbd_storage_password: aadAD432saAdfaoiu
 
-# slurm user and group which runs the slurm daemons
-slurm_user: "slurm"
-slurm_group: "slurm"
+# the course users (user01, user02...) are added to the slurm accounting db
+# on their first job submission
+slurm_install_job_submit_lua_template: job_submit_autoadd.lua.j2
 
-# slurm packages we install in every cluster member
-slurm_packages_common:
-  - slurm-client
-  - libpmix2
-
-# slurm packages we install only in master node
-slurm_packages_master:
-  - slurmctld
-
-# slurm packages we install only in slurmdbd node
-slurm_packages_slurmdbd:
-  - slurmdbd
-  - mariadb-server
-
-# slurm packages we install only in worker nodes
-slurm_packages_worker:
-  - slurmd
+# cloud VMs can be slow to answer
+slurm_install_slurm_conf_extra: |
+  MessageTimeout=60
+  UnkillableStepTimeout=180

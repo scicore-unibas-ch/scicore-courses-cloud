@@ -48,7 +48,7 @@ $> openstack server list
 
 ```bash
 $> cd ansible/
-$> ansible-galaxy role install -r requirements.yml -p roles/
+$> ansible-galaxy install -r requirements.yml
 $> ansible course -m shell -a 'uname -r'
 $> ansible-playbook playbooks/site.yml
 ```

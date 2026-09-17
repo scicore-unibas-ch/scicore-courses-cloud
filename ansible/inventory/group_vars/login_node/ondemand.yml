@@ -43,7 +43,7 @@ httpd_auth:
   - 'RequestHeader unset Authorization'
   - 'Require valid-user'
 
-# Wire Open OnDemand to the (configless) Slurm cluster. The login node is a
+# Wire Open OnDemand to the Slurm cluster. The login node is a
 # slurm submit host, so sbatch/squeue run locally as the user.
 clusters:
   course: |
