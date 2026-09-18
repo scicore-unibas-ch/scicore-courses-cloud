@@ -112,6 +112,9 @@
     # The role only templates /etc/ood/config/ood_portal.yml; it does not run the
     # portal generator, so our servername / ssl / PAM auth settings are not
     # applied to apache until update_ood_portal regenerates the vhost.
+    # --detailed-exitcodes: 0 = unchanged, 3 = vhost rewritten, so apache is only
+    # restarted when the config really changed. --force overwrites a hand-edited
+    # vhost (else rc 4, change skipped): ood_portal.yml is the source of truth.
     - name: Apply the Open OnDemand portal configuration to apache
       tags: ood
       block:
@@ -133,8 +136,10 @@
           notify: Restart apache2
 
         - name: Regenerate the apache vhost from ood_portal.yml
-          ansible.builtin.command: /opt/ood/ood-portal-generator/sbin/update_ood_portal
-          changed_when: true
+          ansible.builtin.command: /opt/ood/ood-portal-generator/sbin/update_ood_portal --detailed-exitcodes --force
+          register: _ood_portal
+          changed_when: _ood_portal.rc == 3
+          failed_when: _ood_portal.rc not in [0, 3]
           notify: Restart apache2
 
 # vim: tabstop=2 shiftwidth=2
