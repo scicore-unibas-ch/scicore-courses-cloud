@@ -18,9 +18,22 @@
         get_checksum: no
       register: _reboot_required_file
 
+    # Every host is reached through the login node (ProxyCommand in
+    # group_vars/all/ansible_ssh.yml). Rebooting it together with the others
+    # cuts their SSH tunnel mid-command: the reboot module takes the dropped
+    # connection for the reboot starting, the shutdown never runs, and the
+    # task times out waiting for a new boot id. Reboot it last, on its own.
     - name: Reboot the server (if required).
       ansible.builtin.reboot:
-      when: _reboot_required_file.stat.exists
+      when:
+        - _reboot_required_file.stat.exists
+        - "'login_node' not in group_names"
+
+    - name: Reboot the login node (if required).
+      ansible.builtin.reboot:
+      when:
+        - _reboot_required_file.stat.exists
+        - "'login_node' in group_names"
 
     - name: Remove dependencies that are no longer required.
       ansible.builtin.apt:
