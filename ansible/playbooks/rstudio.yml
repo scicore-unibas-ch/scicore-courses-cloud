@@ -8,7 +8,7 @@
   tasks:
 
     # https://cloud.r-project.org/bin/linux/ubuntu/
-    - name: Install latest R lang using CRAN ubuntu repos
+    - name: Add the CRAN apt repo for the latest R lang
       block:
 
         - name: Install some packages required by the r-lang repo
@@ -30,11 +30,6 @@
               https://cloud.r-project.org/bin/linux/ubuntu {{ ansible_distribution_release }}-cran40/
             filename: r-lang
             state: present
-
-        - name: Install R lang
-          ansible.builtin.apt:
-            name: r-base
-
 
     - name: Install CRAN and bioconductor packages as debs
       block:
@@ -65,6 +60,13 @@
               Pin: release o=CRAN-Apt Project
               Pin: release l=CRAN-Apt Packages
               Pin-Priority: 700
+
+        # after the r2u repo and pin: otherwise r-base pulls its recommended
+        # r-cran-* packages from CRAN, and the next dist-upgrade swaps them for
+        # the pinned r2u builds
+        - name: Install R lang
+          ansible.builtin.apt:
+            name: r-base
 
         - name: Install R CRAN packages
           ansible.builtin.apt:
