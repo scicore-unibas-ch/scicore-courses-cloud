@@ -1,10 +1,18 @@
+locals {
+  ssh_key_file = pathexpand("~/.ssh/id_ed25519_tofu")
+}
 
 resource "null_resource" "ssh_keygen" {
+  # re-run when the key path changes (e.g. an existing state from the old RSA key)
+  triggers = {
+    ssh_key_file = local.ssh_key_file
+  }
+
   provisioner "local-exec" {
     command = <<EOT
-if [ ! -f "$HOME/.ssh/id_rsa_tofu" ]; then
-  ssh-keygen -t rsa \
-    -f "$HOME/.ssh/id_rsa_tofu" \
+if [ ! -f "${local.ssh_key_file}" ]; then
+  ssh-keygen -t ed25519 \
+    -f "${local.ssh_key_file}" \
     -C "opentofu-bootstrap" \
     -N ""
 fi
@@ -13,7 +21,7 @@ EOT
 }
 
 data "local_file" "ssh_public_key" {
-  filename = pathexpand("~/.ssh/id_rsa_tofu.pub")
+  filename = "${local.ssh_key_file}.pub"
 
   depends_on = [
     null_resource.ssh_keygen
