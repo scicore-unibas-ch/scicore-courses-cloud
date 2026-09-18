@@ -67,8 +67,8 @@ next deploy should do two `site.yml` runs and expect `changed=0` on the second.
    `group_vars/all/slurm.yml`) to ansible-vault.
 4. Later, in the collection first: configless mode (`sackd` on the login
    node), then OpenStack elastic scheduling (resume/suspend programs,
-   `clouds.yaml` on the controller, the commented-out app-credential
-   resources in `opentofu/slurm-master.tf`), then an aux script to build
+   `clouds.yaml` on the controller built from the app credential that
+   `opentofu/slurm-master.tf` creates), then an aux script to build
    compute-node images.
 5. Consider declaring the course accounts/users with the collection's
    `slurm_acct` role instead of the lua auto-add plugin.
@@ -88,6 +88,12 @@ next deploy should do two `site.yml` runs and expect `changed=0` on the second.
 - **Application credentials are bound to one project**: adding `project_id`
   to `clouds.yaml` does not rescope them. The credential for this work is
   scoped to `SIB-Training #woVM`.
+- **Creating the slurm master's app credential needs an unrestricted one**:
+  `opentofu/slurm-master.tf` creates `slurm_master_course` (restricted) and
+  writes it to the gitignored
+  `ansible/inventory/group_vars/slurm_master/openstack_app_credential.yml`.
+  Keystone refuses that request from a restricted application credential, so
+  tofu must authenticate with an *unrestricted* one (or a user password/token).
 - **A failed apply can orphan a security group** (Neutron 500 while deleting
   its default rules): the group exists in the cloud but not in the state, and
   the next apply fails with "Multiple security_group matches found". Delete
