@@ -7,13 +7,16 @@
 
   vars:
 
-    # local_systemd_user_slice_mem_limit_folder: /etc/systemd/system/user-.slice.d
-
+    # systemd only takes whole-line comments: "MemoryMax=8G # comment" is an
+    # invalid value and silently ignored. A percentage is relative to the
+    # node's physical RAM, so the limit scales with the flavor.
     local_systemd_user_slice_mem_config: |
+      # ansible managed
       [Slice]
-      Slice=user.slice
-      MemoryMax=8G # hard limit
-      MemorySwapMax=0 # Disable swapping altogether
+      # hard limit for all processes of one user together
+      MemoryMax=20%
+      # disable swapping altogether
+      MemorySwapMax=0
 
   tasks:
 
