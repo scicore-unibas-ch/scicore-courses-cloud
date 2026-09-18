@@ -2,7 +2,7 @@
 
 nfs_share_mounts:
   - path: "{{ local_nfs_mount_point }}"
-    location: '{{ hostvars["nfs-server"].ansible_default_ipv4.address }}:{{ local_nfs_mount_point }}'
+    location: '{{ hostvars["nfs-server"].ansible_facts.default_ipv4.address }}:{{ local_nfs_mount_point }}'
 
 nfs_version: 3
 
