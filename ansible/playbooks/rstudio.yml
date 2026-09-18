@@ -64,13 +64,11 @@
 
         - name: Install R CRAN packages
           ansible.builtin.apt:
-            name: "r-cran-{{ item }}"
-          loop: "{{ local_r_cran_packages }}"
+            name: "{{ local_r_cran_packages | map('regex_replace', '^', 'r-cran-') | list }}"
 
         - name: Install R bioconductor packages
           ansible.builtin.apt:
-            name: "r-bioc-{{ item }}"
-          loop: "{{ local_r_bioconductor_packages }}"
+            name: "{{ local_r_bioconductor_packages | map('regex_replace', '^', 'r-bioc-') | list }}"
 
     - name: Install RStudio server
       ansible.builtin.apt:
