@@ -56,12 +56,12 @@
       when: "'cvmfs_clients' in group_names"
       tags: cvmfs_clients
 
-    - name: Configure sshd if sshd config is defined
+    - name: Configure sshd if sshd_config is defined
       ansible.builtin.import_role:
         name: willshersystems.sshd
       when:
-        - sshd is defined
-        - sshd | length > 0
+        - sshd_config is defined
+        - sshd_config | length > 0
       tags: sshd
 
     - name: Configure users accounts in the cluster
