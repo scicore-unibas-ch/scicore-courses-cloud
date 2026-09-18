@@ -12,11 +12,11 @@ jobs:
 
   tofu-lint:
     name: OpenTofu format check and validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
 
-      - uses: opentofu/setup-opentofu@v1
+      - uses: opentofu/setup-opentofu@v2
         with:
           tofu_version: latest
 
@@ -34,7 +34,7 @@ jobs:
 
   ansible-lint:
     name: Ansible lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
 

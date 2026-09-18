@@ -1,7 +1,12 @@
 ---
 
-- import_playbook: apt-dist-upgrade.yml
-- import_playbook: configure.yml
-- import_playbook: cvmfs-presync.yml
-- import_playbook: rstudio.yml
-- import_playbook: ondemand.yml
+- name: Upgrade the packages and reboot if needed
+  import_playbook: apt-dist-upgrade.yml
+- name: Configure the course cluster and Slurm
+  import_playbook: configure.yml
+- name: Warm the cvmfs cache
+  import_playbook: cvmfs-presync.yml
+- name: Install R and RStudio server
+  import_playbook: rstudio.yml
+- name: Install Open OnDemand
+  import_playbook: ondemand.yml

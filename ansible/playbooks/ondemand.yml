@@ -99,9 +99,15 @@
         - name: Obtain the certificate for the portal hostname (standalone HTTP-01)
           vars:
             # Register with a real email if one was provided, otherwise anonymously
-            _certbot_reg_args: "{{ ['--email', ood_letsencrypt_email] if (ood_letsencrypt_email | default('') | length > 0) else ['--register-unsafely-without-email'] }}"
+            _certbot_reg_args: >-
+              {{ ['--email', ood_letsencrypt_email]
+                 if (ood_letsencrypt_email | default('') | length > 0)
+                 else ['--register-unsafely-without-email'] }}
           ansible.builtin.command:
-            argv: "{{ ['certbot', 'certonly', '--standalone', '--non-interactive', '--agree-tos', '--keep-until-expiring'] + _certbot_reg_args + ['--pre-hook', 'systemctl stop apache2', '--post-hook', 'systemctl start apache2', '--domain', servername] }}"
+            argv: >-
+              {{ ['certbot', 'certonly', '--standalone', '--non-interactive', '--agree-tos', '--keep-until-expiring']
+                 + _certbot_reg_args
+                 + ['--pre-hook', 'systemctl stop apache2', '--post-hook', 'systemctl start apache2', '--domain', servername] }}
             creates: "/etc/letsencrypt/live/{{ servername }}/fullchain.pem"
 
     - name: Install and configure Open OnDemand
