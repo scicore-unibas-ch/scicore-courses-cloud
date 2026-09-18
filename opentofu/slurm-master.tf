@@ -20,33 +20,36 @@ module "slurm_master" {
   ]
 }
 
-# the resource below can be used in case we configure slurm in dynamic mode
-# by now this is here just as reference
-# # this is the ramdom password used by the application credential below
-# resource "random_password" "slurm_master_app_cred_password" {
-#   length           = 64
-#   special          = false
-#   #override_special = "_%@"
-# }
+# Application credential used by the slurm master to create/delete the
+# dynamic compute nodes (Slurm ResumeProgram/SuspendProgram). Ansible deploys
+# it to the slurm master from the file written below.
+#
+# Creating an application credential needs tofu to authenticate with a user
+# password/token or with an *unrestricted* application credential: Keystone
+# refuses the request from a restricted one. The credential created here is
+# restricted, so a leaked copy cannot mint further credentials.
+#
+# Query its details from the state with:
+# $> tofu state pull | jq '.resources[] | select(.type == "openstack_identity_application_credential_v3") .instances[0].attributes'
+resource "random_password" "slurm_master_app_cred_secret" {
+  length  = 64
+  special = false
+}
 
-# # This application credential is used by the slurm master to start/stop dynamic compute nodes
-# # This app cred is deployed to /etc/openstack/clouds.yaml in the slurm master host
-# # You can query details from terraform state using this command:
-# # $> tofu state pull | jq '.resources[] | select(.type == "openstack_identity_application_credential_v3") .instances[0].attributes'
-# resource "openstack_identity_application_credential_v3" "app_cred_slurm_master" {
-#   name        = "slurm_master_course"
-#   description = "app credential used by slurm master to boot compute nodes"
-#   secret      = random_password.slurm_master_app_cred_password.result
-#   roles       = ["member","reader"]
-#   unrestricted = "false"
-#   #expires_at  = "2019-02-13T12:12:12Z"
-# }
+resource "openstack_identity_application_credential_v3" "app_cred_slurm_master" {
+  name         = "slurm_master_course"
+  description  = "app credential used by the slurm master to boot and delete compute nodes"
+  secret       = random_password.slurm_master_app_cred_secret.result
+  roles        = ["member", "reader"]
+  unrestricted = false
+}
 
-# resource "local_file" "slurm_master_app_cred" {
-#   filename        = "${path.module}/../ansible/inventory/group_vars/slurm_master/openstack_app_credential.yml"
-#   file_permission = "0600"
-#   content         = yamlencode({
-#     slurm_master_openstack_app_cred_id     = openstack_identity_application_credential_v3.app_cred_slurm_master.id
-#     slurm_master_openstack_app_cred_secret = openstack_identity_application_credential_v3.app_cred_slurm_master.secret
-#   })
-# }
+# gitignored (see .gitignore)
+resource "local_sensitive_file" "slurm_master_app_cred" {
+  filename        = "${path.module}/../ansible/inventory/group_vars/slurm_master/openstack_app_credential.yml"
+  file_permission = "0600"
+  content = yamlencode({
+    slurm_master_openstack_app_cred_id     = openstack_identity_application_credential_v3.app_cred_slurm_master.id
+    slurm_master_openstack_app_cred_secret = openstack_identity_application_credential_v3.app_cred_slurm_master.secret
+  })
+}
