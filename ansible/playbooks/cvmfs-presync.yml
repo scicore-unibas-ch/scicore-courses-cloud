@@ -14,6 +14,7 @@
         #module load Trimmomatic FastQC Salmon Subread &> /dev/null
       args:
         executable: /bin/bash
+      changed_when: false  # only warms the cvmfs cache, changes nothing
 
     - name: Load the ComputeCanada software stack and list the available software
       ansible.builtin.shell: |
@@ -22,5 +23,6 @@
         #module load Trimmomatic FastQC Salmon Subread &> /dev/null
       args:
         executable: /bin/bash
+      changed_when: false  # only warms the cvmfs cache, changes nothing
 
 # vim: tabstop=2 shiftwidth=2
