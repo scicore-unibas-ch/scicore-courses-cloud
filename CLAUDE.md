@@ -9,7 +9,7 @@ hosts land in inventory groups from the VM tags (`inventory/openstack.yml`).
 **Slurm now comes from the `pescobar.slurm` collection** (role
 `slurm_install`, github.com/pescobar/ansible-collection-slurm, cloned at
 `../ansible-collection-slurm`), replacing the old `scicore.slurm` role
-(`../ansible-role-slurm`, reference only — do not modify it). PRs #29–#37
+(`../ansible-role-slurm`, reference only — do not modify it). PRs #29–#44
 are merged.
 
 - **Ubuntu 26.04** everywhere (`dev.tfvars`/`prod.tfvars`): its archive Slurm
@@ -34,43 +34,94 @@ are merged.
   job runs on a worker and the user is auto-added to accounting; a job over
   its `--mem` ends `OUT_OF_MEMORY`.
 - 2026-09-18: the **full `site.yml`** runs clean on a fresh deployment
-  (first run ~16 min, re-run ~4 min): a worker job sees `/cvmfs`; R 4.6.1
+  (first run ~14-16 min, re-run ~4 min): a worker job sees `/cvmfs`; R 4.6.1
   loads the r2u CRAN/Bioconductor packages and `rstudio-server` answers on
   :8787; Open OnDemand serves `https://<fip-dashed>.sslip.io` with a Let's
   Encrypt cert and `user01` logs into the dashboard (PAM basic auth, default
   course password is in `group_vars/all/local_users.yml`). Launching a
   `bc_desktop` session was not tested.
+- 2026-09-18 (later): **idempotency verified** — a further `site.yml` run was
+  `changed=0` on every host (#36, #37 confirmed on real VMs; the one-time
+  `autoremove` on the second run is expected). **#43 verified**: on a fresh
+  deploy all 5 hosts needed a reboot; the four others rebooted first, then the
+  login node, no timeout; `user01` ran `srun -N2 hostname` on both workers.
+  **#44** (slurm master app credential) applied and verified: the credential
+  authenticates and lists the project's servers. The cluster was destroyed
+  afterwards.
 
-**Idempotency (PRs #33, #34, #37):** the re-run still showed changes, now
-fixed: `update_ood_portal` ran with `changed_when: true` and restarted apache
-every run (now `--detailed-exitcodes --force`); the cvmfs presync shell tasks
-(now `changed_when: false`); `r-base` installed before the r2u repo + pin, so
-the next dist-upgrade swapped 15 `r-cran-*` packages (now installed after the
-pin). A one-time `autoremove` of `networkd-dispatcher` on the second run is
-expected. **#36 (ed25519 key) and #37 are not yet verified on real VMs** — the
-next deploy should do two `site.yml` runs and expect `changed=0` on the second.
+**Idempotency fixes (PRs #33, #34, #37):** `update_ood_portal` ran with
+`changed_when: true` and restarted apache every run (now
+`--detailed-exitcodes --force`); the cvmfs presync shell tasks (now
+`changed_when: false`); `r-base` installed before the r2u repo + pin, so the
+next dist-upgrade swapped 15 `r-cran-*` packages (now installed after the pin).
 
 **Other changes 2026-09-18:** R packages install with one `apt` call per list
 (#32); CI installs with `uv` + its cache instead of pip (lint job ~72 s →
 ~30 s), runs on `ubuntu-26.04`, `setup-opentofu@v2`, no ansible-lint warnings
-(#35); the tofu bootstrap key is ed25519, `~/.ssh/id_ed25519_tofu` (#36).
+(#35); the tofu bootstrap key is ed25519, `~/.ssh/id_ed25519_tofu` (#36);
+`apt-dist-upgrade.yml` reboots the login node after the other hosts (#43);
+`opentofu/slurm-master.tf` creates the slurm master's application credential
+(#44).
 
-## Next steps
+## Current work: configless + elastic compute nodes
 
-1. Next deploy: run `site.yml` twice and confirm the second run is
-   `changed=0` (verifies #36 and #37).
-2. Re-run speed (second run ~4 min, not done yet): the per-user loops in
-   `configure.yml` take ~80 s (30 users × 5 loops; the three NFS-server-only
-   loops could be one script task), and facts are gathered once per play
-   (`gathering = smart` + jsonfile fact cache in `ansible.cfg`).
-3. Move `slurm_install_dbd_storage_password` (still plaintext in
+Goal: only `login-node`, `nfs-server` and `slurm-master` stay up; compute
+nodes are created when jobs are queued and deleted when idle. Decisions taken
+with the user on 2026-09-18:
+
+- **Suspend = delete the VM, resume = create a new one** (Slurm
+  `SuspendProgram`/`ResumeProgram` on the slurm master, using the
+  `slurm_master_course` app credential from #44, deployed as `clouds.yaml`).
+  No shelve/stop.
+- **No pre-created Neutron ports** — plain OpenStack DNS is enough. Measured
+  on the dev cluster by replacing `slurm-worker-02` (new IP) while polling the
+  tenant resolver `130.59.31.248` every 2 s: NXDOMAIN ~4 s after the VM was
+  deleted, the new A record ~9 s after the new instance started creating, no
+  stale IP and no cached NXDOMAIN; PTR records follow. Names are
+  `<vm>.zhw.compute.local`, short names resolve via the DHCP search domain
+  (Neutron `dns-integration`; Designate is not in the catalog). Fresh answers
+  always carry TTL 3600.
+- **Stop managing `/etc/hosts`**: set `slurm_install_manage_etc_hosts: false`
+  (`group_vars/all/slurm.yml`). A replaced node otherwise keeps its old IP in
+  every host's `/etc/hosts` (seen in the DNS test).
+- **Disable the systemd-resolved cache** on `login-node`, `slurm-master` and
+  `nfs-server` (`Cache=no`), so a re-created node's new IP is used at once.
+- **Compute nodes boot from a pre-built image** built with the existing
+  Ansible roles (users, NFS, CVMFS, R, munge, slurmd) and uploaded to Glance;
+  in configless mode slurmd fetches its config from slurmctld
+  (`slurmd --conf-server`), so the image carries no `slurm.conf`. Not a stock
+  image configured at boot (too slow for `ResumeTimeout`).
+
+Order of work:
+
+1. **Collection first — configless mode** in `slurm_install`:
+   `SlurmctldParameters=enable_configless`, slurmd with `--conf-server`,
+   `sackd` on the login (submit) node, `/etc/hosts` management already
+   optional (`slurm_install_manage_etc_hosts`). Verify in the collection's
+   test setups first, then on a dev deploy.
+2. **Collection — elastic scheduling**: cloud nodes (`State=CLOUD`),
+   resume/suspend programs creating/deleting VMs via the OpenStack API,
+   `SuspendTime`/`ResumeTimeout`, `clouds.yaml` on the controller. Check in
+   the Slurm 25.11 docs whether slurmctld keeps its own address cache
+   (`cloud_dns` and related `SlurmctldParameters`) before relying on DNS.
+   The deleted `slurm.conf.course.j2` in git history is a (half-migrated)
+   reference.
+3. **Compute-node image script** (aux): build the image with Ansible, upload
+   to Glance.
+4. **This repo**: drop the static workers from `opentofu/`, set
+   `slurm_install_manage_etc_hosts: false`, disable the resolved cache on the
+   three permanent nodes, wire in the collection's new options and the app
+   credential.
+
+## Other next steps
+
+1. Re-run speed (re-run ~4 min): the per-user loops in `configure.yml` take
+   ~80 s (30 users × 5 loops; the three NFS-server-only loops could be one
+   script task), and facts are gathered once per play (`gathering = smart` +
+   jsonfile fact cache in `ansible.cfg`).
+2. Move `slurm_install_dbd_storage_password` (still plaintext in
    `group_vars/all/slurm.yml`) to ansible-vault.
-4. Later, in the collection first: configless mode (`sackd` on the login
-   node), then OpenStack elastic scheduling (resume/suspend programs,
-   `clouds.yaml` on the controller built from the app credential that
-   `opentofu/slurm-master.tf` creates), then an aux script to build
-   compute-node images.
-5. Consider declaring the course accounts/users with the collection's
+3. Consider declaring the course accounts/users with the collection's
    `slurm_acct` role instead of the lua auto-add plugin.
 
 ## Gotchas found the hard way
@@ -84,6 +135,12 @@ next deploy should do two `site.yml` runs and expect `changed=0` on the second.
   v0.27.1 ends the play with `meta: end_host` on an unknown OS, which
   silently skipped the rest of `configure.yml` (no course users were
   created). Pinned v0.34.0. Check the same pattern when a role misbehaves.
+- **Every host is reached through the login node** (ProxyCommand in
+  `group_vars/all/ansible_ssh.yml`): rebooting it together with the others
+  cut their tunnels mid-command, the reboot module took the drop for the
+  reboot starting, and a worker timed out after 600 s without ever rebooting
+  (#43 reboots the login node last). Keep this in mind for any task that
+  restarts networking or sshd on the login node.
 - **`/tmp` is per-node**; job output must go to `/shared/home/...` (NFS).
 - **Application credentials are bound to one project**: adding `project_id`
   to `clouds.yaml` does not rescope them. The credential for this work is
@@ -125,6 +182,14 @@ virtiofs cache setting (it starts `virtiofsd` with defaults).
   `/var/tmp/courses-venv/bin` on `PATH` (with `OS_CLOUD=openstack`).
 - The same penalty hits anything writing many files into the repo
   (`ansible-galaxy install` into `ansible/roles`, `.terraform/`).
+- `tofu` and `gh` are installed in `~/.local/bin` (release binaries). `gh`'s
+  default token is refused by the `scicore-unibas-ch` org (fine-grained PAT
+  lifetime > 366 days); use `GH_TOKEN=$(cat ~/.config/gh/scicore-courses-cloud.token)`
+  for this repo. Git itself pushes over SSH (host alias
+  `github-scicore-courses-cloud`, deploy key).
+- `~/.config/openstack/clouds.yaml` (cloud `openstack`) holds an
+  **unrestricted** app credential (`claude-course-dev-unrestricted`, expires
+  2026-10-21), needed to create the slurm master's credential (#44).
 - Ansible run from Claude's shell needs `</dev/null` (else "Ansible requires
   blocking IO on stdin/stdout/stderr").
 
