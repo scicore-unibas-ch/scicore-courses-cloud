@@ -10,6 +10,11 @@ keyed_groups:
     prefix: ""
     separator: ""
 
+# only the tag groups above: the plugin's legacy groups (instance-<uuid>,
+# flavor-<name>, image-<name>, region/az) are unused and have '-' in their
+# names, which triggers the "Invalid characters were found in group names" warning
+legacy_groups: false
+
 all_projects: false
 inventory_hostname: name
 expand_hostvars: true

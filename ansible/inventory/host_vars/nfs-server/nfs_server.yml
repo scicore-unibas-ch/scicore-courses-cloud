@@ -13,4 +13,4 @@ nfs_server_exports:
     path: "{{ local_nfs_mount_point }}"
 
 # Number of servers to start up
-nfs_server_rpcnfsdcount: '{{ hostvars["nfs-server"].ansible_processor_vcpus | int * 4 }}'
+nfs_server_rpcnfsdcount: '{{ hostvars["nfs-server"].ansible_facts.processor_vcpus | int * 4 }}'

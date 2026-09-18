@@ -11,41 +11,33 @@
     - name: Add the CRAN apt repo for the latest R lang
       block:
 
-        - name: Install some packages required by the r-lang repo
+        - name: Install python3-debian (required by deb822_repository)
           ansible.builtin.apt:
-            name:
-              - software-properties-common
-              - dirmngr
+            name: python3-debian
             cache_valid_time: 600
 
-        - name: Download gpg key for the r-lang apt repo
-          ansible.builtin.get_url:
-            url: https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc
-            dest: /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
-
         - name: Add the apt repo for latest r-lang
-          ansible.builtin.apt_repository:
-            repo: >-
-              deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/cran_ubuntu_key.asc]
-              https://cloud.r-project.org/bin/linux/ubuntu {{ ansible_distribution_release }}-cran40/
-            filename: r-lang
-            state: present
+          ansible.builtin.deb822_repository:
+            name: r-lang
+            uris: https://cloud.r-project.org/bin/linux/ubuntu
+            # a suite ending in '/' is a flat path, so no components
+            suites: "{{ ansible_facts['distribution_release'] }}-cran40/"
+            architectures: amd64
+            signed_by: https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc
+          register: _r_lang_repo
 
     - name: Install CRAN and bioconductor packages as debs
       block:
 
-        - name: Download gpg key for r2u apt repo
-          ansible.builtin.get_url:
-            url: https://eddelbuettel.github.io/r2u/assets/dirk_eddelbuettel_key.asc
-            dest: /etc/apt/trusted.gpg.d/cranapt_key.asc
-
         - name: Add the apt repo r2u
-          ansible.builtin.apt_repository:
-            repo: >-
-              deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/cranapt_key.asc]
-              https://r2u.stat.illinois.edu/ubuntu {{ ansible_distribution_release }} main
-            filename: r2u
-            state: present
+          ansible.builtin.deb822_repository:
+            name: r2u
+            uris: https://r2u.stat.illinois.edu/ubuntu
+            suites: "{{ ansible_facts['distribution_release'] }}"
+            components: main
+            architectures: amd64
+            signed_by: https://eddelbuettel.github.io/r2u/assets/dirk_eddelbuettel_key.asc
+          register: _r2u_repo
 
         - name: Configure priority for the r2u apt repo
           ansible.builtin.copy:
@@ -64,9 +56,11 @@
         # after the r2u repo and pin: otherwise r-base pulls its recommended
         # r-cran-* packages from CRAN, and the next dist-upgrade swaps them for
         # the pinned r2u builds
+        # deb822_repository does not refresh the apt cache itself
         - name: Install R lang
           ansible.builtin.apt:
             name: r-base
+            update_cache: "{{ _r_lang_repo is changed or _r2u_repo is changed }}"
 
         - name: Install R CRAN packages
           ansible.builtin.apt:
