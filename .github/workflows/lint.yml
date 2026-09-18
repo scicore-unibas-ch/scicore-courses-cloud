@@ -38,13 +38,25 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v10
         with:
           python-version: "3.12"
+          activate-environment: true
+          enable-cache: true
+          cache-dependency-glob: ansible/requirements.txt
 
       - name: Install dependencies
         working-directory: ansible
-        run: pip install -r requirements.txt ansible-lint
+        run: uv pip install -r requirements.txt ansible-lint
+
+      # ansible-lint installs requirements.yml into ansible/.ansible; with the
+      # directory restored it skips what is already there.
+      # ponytail: git 'version: master' entries are only refreshed when
+      # requirements.yml changes; bump the key if a stale role matters.
+      - uses: actions/cache@v6
+        with:
+          path: ansible/.ansible
+          key: ansible-galaxy-${{ hashFiles('ansible/requirements.yml') }}
 
       - name: Run ansible-lint
         working-directory: ansible
