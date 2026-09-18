@@ -170,8 +170,15 @@
             user: ubuntu
             key: "{{ lookup('file', '~/.ansible/tmp/id_ed25519_ubuntu_login_node.pub') }}"
 
-# A separate play (not import_role + when): the role reads the munge key from
-# the controller once, which must not depend on which host comes first.
+# A separate play on the slurm hosts, not import_role + when inside the play
+# above. The role reads the munge key from the controller in a run_once task
+# (tasks/munge.yml in pescobar.slurm.slurm_install) and hands it to every node.
+# import_role copies its 'when' onto every task, and for a run_once task
+# Ansible evaluates 'when' only for the first host of the play: if that host
+# is not in 'slurm' (e.g. nfs-server), the key read is skipped for all hosts
+# and "Deploy the cluster munge key" fails. The host order comes from the
+# OpenStack inventory, so it would work or break depending on VM names.
+# With hosts: slurm every host passes, whichever comes first.
 - name: Install and configure slurm
   hosts: slurm
   gather_facts: true
