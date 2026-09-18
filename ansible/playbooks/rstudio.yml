@@ -25,7 +25,9 @@
 
         - name: Add the apt repo for latest r-lang
           ansible.builtin.apt_repository:
-            repo: "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/cran_ubuntu_key.asc] https://cloud.r-project.org/bin/linux/ubuntu {{ ansible_distribution_release }}-cran40/"
+            repo: >-
+              deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/cran_ubuntu_key.asc]
+              https://cloud.r-project.org/bin/linux/ubuntu {{ ansible_distribution_release }}-cran40/
             filename: r-lang
             state: present
 
@@ -44,7 +46,9 @@
 
         - name: Add the apt repo r2u
           ansible.builtin.apt_repository:
-            repo: "deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/cranapt_key.asc] https://r2u.stat.illinois.edu/ubuntu {{ ansible_distribution_release }} main"
+            repo: >-
+              deb [arch=amd64 signed-by=/etc/apt/trusted.gpg.d/cranapt_key.asc]
+              https://r2u.stat.illinois.edu/ubuntu {{ ansible_distribution_release }} main
             filename: r2u
             state: present
 

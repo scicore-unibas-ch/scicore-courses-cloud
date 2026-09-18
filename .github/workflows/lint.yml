@@ -12,11 +12,11 @@ jobs:
 
   tofu-lint:
     name: OpenTofu format check and validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
 
-      - uses: opentofu/setup-opentofu@v1
+      - uses: opentofu/setup-opentofu@v2
         with:
           tofu_version: latest
 
@@ -34,17 +34,20 @@ jobs:
 
   ansible-lint:
     name: Ansible lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v10.1.0  # no moving major tags since v8
         with:
           python-version: "3.12"
+          activate-environment: true
+          enable-cache: true
+          cache-dependency-glob: ansible/requirements.txt
 
       - name: Install dependencies
         working-directory: ansible
-        run: pip install -r requirements.txt ansible-lint
+        run: uv pip install -r requirements.txt ansible-lint
 
       - name: Run ansible-lint
         working-directory: ansible
