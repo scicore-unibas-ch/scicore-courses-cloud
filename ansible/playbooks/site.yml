@@ -4,6 +4,8 @@
   import_playbook: apt-dist-upgrade.yml
 - name: Configure the course cluster and Slurm
   import_playbook: configure.yml
+- name: Limit the memory per user in the login node
+  import_playbook: memory_limit_login_node.yml
 - name: Warm the cvmfs cache
   import_playbook: cvmfs-presync.yml
 - name: Install R and RStudio server
