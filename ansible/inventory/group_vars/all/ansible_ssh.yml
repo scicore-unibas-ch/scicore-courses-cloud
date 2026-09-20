@@ -5,4 +5,8 @@ ansible_user: ubuntu
 ansible_private_key_file: ~/.ssh/id_ed25519_tofu
 
 # We use the login node as ssh jump host for every machine in the cluster, also for the login node itself
-ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i {{ hostvars["login-node"].ansible_private_key_file }} -W %h:%p -q {{ hostvars["login-node"].ansible_user }}@{{ hostvars["login-node"].ansible_ssh_host }}"'
+# ServerAliveInterval on both hops: the login node (the jump host for every
+# other machine) runs with ClientAliveInterval 60, and a long task - creating
+# the 30 course users, say - was enough for it to drop the tunnel with
+# "Timeout, client not responding".
+ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o ProxyCommand="ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -i {{ hostvars["login-node"].ansible_private_key_file }} -W %h:%p -q {{ hostvars["login-node"].ansible_user }}@{{ hostvars["login-node"].ansible_ssh_host }}"'

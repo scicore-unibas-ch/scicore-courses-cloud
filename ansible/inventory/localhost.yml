@@ -1,0 +1,10 @@
+---
+# The control host itself. Without this entry Ansible uses the *implicit*
+# localhost, which inherits no group_vars, so the first play of
+# playbooks/build-compute-image.yml (it creates the builder VM through the
+# OpenStack API) would not see the compute_image_* variables.
+all:
+  hosts:
+    localhost:
+      ansible_connection: local
+      ansible_python_interpreter: "{{ ansible_playbook_python }}"

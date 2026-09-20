@@ -72,20 +72,27 @@ and the slurm master. Compute nodes are created by slurmctld when jobs need
 them and deleted after 15 idle minutes (`slurm_install_cloud_*` in
 `ansible/inventory/group_vars/all/slurm.yml`), so `slurm_worker_count` is 0.
 
-They boot from an image that must be built once per deployment, after the
-cluster is up (the build reads the munge key from the slurm master and mounts
-the NFS share):
+They boot from an image built once per deployment, after the cluster is up
+(the build reads the munge key from the slurm master and mounts the NFS
+share). `deploy.yml` does the whole thing in one command - configure the
+three machines, then build the image if it is missing:
 
 ```bash
 $> cd ansible/
-$> ansible-playbook playbooks/build-compute-image.yml      -e compute_image_name=course-compute-node-2026-09-20
+$> ansible-playbook playbooks/deploy.yml
 ```
 
-The playbook boots a builder VM, applies the Slurm compute-node role and the
+Running it again is cheap: an image that already exists is left alone. To
+rebuild it after changing what a compute node contains:
+
+```bash
+$> ansible-playbook playbooks/build-compute-image.yml -e compute_image_when_exists=replace
+```
+
+The build boots a builder VM, applies the Slurm compute-node role and the
 `course_compute_node` role (the same users, NFS mount and cvmfs client the
-permanent hosts get), cleans it, snapshots it to a **private** image and
-deletes the builder. Then point `slurm_install_cloud_image` at the new name
-and re-run `ansible-playbook playbooks/site.yml`.
+permanent hosts get), cleans it, uploads it as a **private** image and
+deletes the builder.
 
 `sinfo` shows the nodes as `idle~` while they do not exist. Submitting a job
 creates one; `/var/log/slurm/dynamic_nodes.log` on the slurm master records

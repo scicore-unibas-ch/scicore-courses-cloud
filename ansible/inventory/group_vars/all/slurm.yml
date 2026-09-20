@@ -21,6 +21,9 @@ slurm_install_configless: true
 # deletes it after slurm_install_cloud_suspend_time idle seconds. The VMs are
 # created from the image built by playbooks/build-compute-image.yml.
 slurm_install_cloud_scheduling: true
+# The image the compute nodes boot from, built by playbooks/deploy.yml (or
+# playbooks/build-compute-image.yml). The name is stable; rebuild it with
+# -e compute_image_when_exists=replace.
 slurm_install_cloud_image: course-compute-node
 slurm_install_cloud_nodes:
   - name: "compute-[01-04]"
@@ -32,6 +35,9 @@ slurm_install_cloud_nodes:
     keypair: opentofu_key
     security_groups:
       - opentofu_default
+    # SWITCH flavors have disk=0, so a node boots from a volume created from
+    # the image; it is deleted with the node.
+    volume_size: 20
 # A course job should not wait ~10 min for its node to go away and come back,
 # but an idle VM should not linger either.
 slurm_install_cloud_suspend_time: 900
