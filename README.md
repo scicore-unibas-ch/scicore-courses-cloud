@@ -110,6 +110,24 @@ Two consequences of nodes coming and going:
 
 ## Stop and destroy all the machines
 
+`tofu destroy` removes the three permanent machines, but **not** the compute
+nodes: slurmctld created them, so they are not in the OpenTofu state and a
+destroy leaves them running. Clean them up first (or afterwards):
+
+```bash
+$> cd ansible/
+$> ansible-playbook playbooks/cleanup.yml --check   # preview
+$> ansible-playbook playbooks/cleanup.yml
+```
+
+At the end of a course, to delete the compute-node image too:
+
+```bash
+$> ansible-playbook playbooks/cleanup.yml \
+     -e '{"slurm_cleanup_images": ["course-compute-node"]}'
+```
+
+
 ```bash
 $> cd opentofu/
 $> tofu destroy -var-file=environments/dev.tfvars   # or prod.tfvars

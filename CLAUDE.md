@@ -87,6 +87,13 @@ next dist-upgrade swapped 15 `r-cran-*` packages (now installed after the pin).
   (it needs its own ssh/ProxyCommand and nfs vars: the host is added at run
   time and is in no other group).
 
+**Tearing down:** `tofu destroy` does NOT delete the compute nodes (slurmctld
+creates them, so they are not in the state - a leftover node survived the
+2026-09-20 teardown). Run `playbooks/cleanup.yml` first (add
+`-e '{"slurm_cleanup_images": ["course-compute-node"]}'` to drop the image at
+the end of a course), then destroy, then re-run destroy to confirm 0
+resources.
+
 **Order of operations on a fresh deployment:** `tofu apply` ->
 `playbooks/deploy.yml` (site.yml + the compute-node image, built only when
 missing) -> submit a job and watch `/var/log/slurm/dynamic_nodes.log` on the
