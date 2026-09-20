@@ -1,0 +1,23 @@
+---
+# Build the image the elastic compute nodes boot from.
+#
+#   cd ansible/
+#   ansible-playbook playbooks/build-compute-image.yml
+#
+# It boots a VM from the stock Ubuntu image, applies the Slurm compute-node
+# role (slurmd in configless mode + the munge key read from slurm-master) and
+# the course role (users, NFS, cvmfs, ...), cleans the machine identity out
+# and snapshots it to a private Glance image, then deletes the builder.
+#
+# The cluster must be up: the munge key comes from slurm-master and the NFS
+# share is mounted at build time. The image name must not exist yet, so
+# override it per build:
+#
+#   ansible-playbook playbooks/build-compute-image.yml \
+#     -e compute_image_name=course-compute-node-2026-09-20
+#
+# Point slurm_install_cloud_image (group_vars/all/slurm.yml) at the new name
+# and re-run site.yml so slurmctld creates nodes from it.
+
+- name: Build the course compute node image
+  ansible.builtin.import_playbook: pescobar.slurm.build_compute_image

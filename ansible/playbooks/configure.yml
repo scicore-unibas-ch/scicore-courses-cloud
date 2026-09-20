@@ -5,7 +5,39 @@
   gather_facts: true
   become: true
 
+  handlers:
+
+    - name: Restart systemd-resolved
+      ansible.builtin.systemd_service:
+        name: systemd-resolved
+        state: restarted
+
   tasks:
+
+    # A compute node deleted and re-created keeps its name but gets a new IP.
+    # systemd-resolved would serve the old address from its cache for up to
+    # the record's TTL (1 h on this cloud), so turn the cache off.
+    - name: Create the systemd-resolved drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags: dns
+
+    - name: Do not cache DNS answers (compute node IPs change)
+      ansible.builtin.copy:
+        content: |
+          # Ansible managed
+          [Resolve]
+          Cache=no
+        dest: /etc/systemd/resolved.conf.d/10-no-cache.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart systemd-resolved
+      tags: dns
 
     - name: Configure timesyncd time
       ansible.builtin.import_role:
@@ -68,6 +100,8 @@
       tags: user_accounts
       block:
 
+        # Also created by tasks/course_users.yml below, but the NFS server
+        # task right after this one already needs the group to exist.
         - name: Create a default group "users" for every user
           ansible.builtin.group:
             name: "users"
@@ -93,22 +127,10 @@
             ssh_key_type: ed25519
           loop: "{{ query('sequence', 'count=' ~ local_users_accounts ~ ' format=%02u') }}"
 
+        # Same file as the compute-node image uses, so the accounts on a
+        # dynamically created node match the rest of the cluster.
         - name: Create the user accounts (starting with uid 2001) | Now in every machine
-          ansible.builtin.user:
-            name: "user{{ item }}"
-            uid: "20{{ item }}"
-            group: "users"
-            home: "{{ local_nfs_mount_point }}/home/user{{ item }}"
-            create_home: yes
-            shell: /bin/bash
-            #update_password: always
-            password: "{{ local_users_accounts_password }}"
-            generate_ssh_key: yes
-            ssh_key_comment: "user{{ item }}_slurm_cluster@ansible-generated"
-            state: present
-            ssh_key_file: .ssh/id_ed25519
-            ssh_key_type: ed25519
-          loop: "{{ query('sequence', 'count=' ~ local_users_accounts ~ ' format=%02u') }}"
+          ansible.builtin.include_tasks: ../tasks/course_users.yml
 
         # We do this in the NFS server to make sure that root can access the home folders (just in case root squash is enabled)
         - name: Get the ssh public keys for every user

@@ -1,0 +1,39 @@
+---
+# The VM that becomes the compute-node image (pescobar.slurm's
+# build_compute_image playbook adds it to this group at run time).
+
+# What to build, and from what. Override the name per build so an image is
+# never silently replaced: the playbook refuses an existing name.
+compute_image_name: "{{ slurm_install_cloud_image }}"
+compute_image_base: "Ubuntu 26.04 (Switch Cloud)"
+compute_image_flavor: c002r004
+compute_image_network: UNIBAS
+compute_image_keypair: opentofu_key
+compute_image_security_groups:
+  - opentofu_default
+
+# The Slurm side, from the collection.
+slurm_compute_image_conf_server: "slurm-master:6817"
+slurm_compute_image_munge_key_host: slurm-master
+
+# The course side: users, NFS, cvmfs, the same roles configure.yml applies.
+compute_image_extra_roles:
+  - course_compute_node
+
+# The builder has no floating IP, so it is reached through the login node
+# like every other host (group_vars/all/ansible_ssh.yml cannot apply here:
+# this host is added at run time and is not in the 'course' group).
+ansible_user: ubuntu
+ansible_private_key_file: ~/.ssh/id_ed25519_tofu
+ansible_ssh_common_args: >-
+  -o StrictHostKeyChecking=no
+  -o ProxyCommand="ssh -o StrictHostKeyChecking=no -i {{ hostvars['login-node'].ansible_private_key_file }}
+  -W %h:%p -q {{ hostvars['login-node'].ansible_user }}@{{ hostvars['login-node'].ansible_ssh_host }}"
+
+# The builder mounts the same NFS share as a compute node (group_vars for
+# nfs_clients does not apply to this group).
+nfs_share_mounts:
+  - path: "{{ local_nfs_mount_point }}"
+    location: "nfs-server:{{ local_nfs_mount_point }}"
+nfs_version: 3
+nfs_mount_opts: bg

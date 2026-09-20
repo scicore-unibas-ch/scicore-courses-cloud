@@ -2,7 +2,9 @@
 
 nfs_share_mounts:
   - path: "{{ local_nfs_mount_point }}"
-    location: '{{ hostvars["nfs-server"].ansible_facts.default_ipv4.address }}:{{ local_nfs_mount_point }}'
+    # by name, resolved by the OpenStack tenant DNS: the compute-node image
+    # is built once and cannot carry the NFS server's address
+    location: 'nfs-server:{{ local_nfs_mount_point }}'
 
 nfs_version: 3
 

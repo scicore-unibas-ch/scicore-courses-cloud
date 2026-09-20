@@ -1,0 +1,46 @@
+---
+# Everything a course compute node needs besides Slurm itself, applied to the
+# VM that becomes the compute-node image. The Slurm side (slurmd, munge key,
+# configless) comes from pescobar.slurm.slurm_compute_image, and the image is
+# built by playbooks/build-compute-image.yml.
+#
+# These are the same roles and tasks configure.yml applies to the permanent
+# hosts, so a dynamically created node matches the rest of the cluster.
+
+- name: Configure timesyncd time
+  ansible.builtin.include_role:
+    name: wf72.systemd_timesyncd
+
+- name: Install the basic packages
+  ansible.builtin.apt:
+    name: "{{ local_common_packages_to_install }}"
+    cache_valid_time: 600
+  when:
+    - local_common_packages_to_install is defined
+    - local_common_packages_to_install | length > 0
+
+- name: Mount the NFS shares
+  ansible.builtin.include_role:
+    name: ome.nfs_mount
+  when: nfs_share_mounts | length > 0
+
+# role_path, not playbook_dir: the build playbook lives in the collection.
+- name: Create the course user accounts
+  ansible.builtin.include_tasks: "{{ role_path }}/../../tasks/course_users.yml"
+
+- name: Install the cvmfs client
+  ansible.builtin.include_role:
+    name: pescobar.cvmfs_client
+
+- name: Configure sshd
+  ansible.builtin.include_role:
+    name: willshersystems.sshd
+  when:
+    - sshd_config is defined
+    - sshd_config | length > 0
+
+- name: Add the teacher's ssh public keys to the ubuntu account
+  ansible.posix.authorized_key:
+    user: ubuntu
+    key: "{{ item }}"
+  loop: "{{ local_teachers_ssh_keys }}"
