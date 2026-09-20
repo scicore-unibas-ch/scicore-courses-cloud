@@ -65,6 +65,38 @@ next dist-upgrade swapped 15 `r-cran-*` packages (now installed after the pin).
 
 ## Current work: configless + elastic compute nodes
 
+**Wired up 2026-09-20 (not yet deployed).** The collection side is merged
+(pescobar/ansible-collection-slurm PRs #6 configless, #7 elastic nodes,
+#8 compute-node image) and this repo now uses it:
+
+- `group_vars/all/slurm.yml`: `slurm_install_configless: true`,
+  `slurm_install_manage_etc_hosts: false`, `slurm_install_cloud_scheduling:
+  true` with 4 `compute-[01-04]` nodes (c002r004, image
+  `slurm_install_cloud_image`, network UNIBAS, keypair opentofu_key, secgroup
+  opentofu_default) and the app credential from #44.
+- `slurm_worker_count = 0` in both tfvars: no permanent workers.
+- `configure.yml` turns the systemd-resolved cache off on the permanent hosts
+  (a re-created node keeps its name and gets a new IP) and now includes
+  `tasks/course_users.yml`, which the image build uses too so the accounts
+  cannot drift. The NFS mount is by name (`nfs-server:/shared`), not by the
+  server's IP: an image cannot carry an address.
+- `custom_roles/course_compute_node` (new `roles_path` entry - `ansible/roles/`
+  is the gitignored galaxy target) applies the course side to the image;
+  `playbooks/build-compute-image.yml` imports the collection's build playbook,
+  with the builder's settings in `group_vars/_compute_image_builder/`
+  (it needs its own ssh/ProxyCommand and nfs vars: the host is added at run
+  time and is in no other group).
+
+**Order of operations on a fresh deployment:** `tofu apply` -> `site.yml`
+(3 machines) -> `playbooks/build-compute-image.yml -e compute_image_name=...`
+-> point `slurm_install_cloud_image` at it -> `site.yml` again -> submit a job
+and watch `/var/log/slurm/dynamic_nodes.log` on the slurm master.
+
+**Still unverified against the real cloud:** the resume/suspend programs, the
+image build's boot/snapshot/delete, and whether a created node registers and
+runs a job. That is the next session's work.
+
+
 Goal: only `login-node`, `nfs-server` and `slurm-master` stay up; compute
 nodes are created when jobs are queued and deleted when idle. Decisions taken
 with the user on 2026-09-18:

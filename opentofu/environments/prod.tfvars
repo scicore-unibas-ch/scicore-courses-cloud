@@ -9,8 +9,10 @@ login_node_boot_volume_size = 100
 slurm_master_flavor_name      = "c008r008"
 slurm_master_boot_volume_size = 100
 
-# slurm workers
-slurm_worker_count            = 4
+# slurm workers. 0: the compute nodes are elastic, slurmctld creates and
+# deletes them (slurm_install_cloud_* in ansible/inventory/group_vars/all).
+# Set a count here to also have permanent workers.
+slurm_worker_count            = 0
 slurm_worker_flavor_name      = "c032r064"
 slurm_worker_boot_volume_size = 100
 

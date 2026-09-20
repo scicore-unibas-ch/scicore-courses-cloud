@@ -1,0 +1,31 @@
+---
+# The course accounts as they must exist on every machine that runs or
+# submits jobs: same names, uids and group everywhere, home on the NFS share.
+# Included by playbooks/configure.yml for the live hosts and by
+# custom_roles/course_compute_node for the compute-node image, so the two
+# cannot drift apart.
+#
+# The homes themselves (and the users' ssh keys) are created on the NFS
+# server by configure.yml; here create_home only fills in a missing one.
+
+- name: Create the default group "users" for every user
+  ansible.builtin.group:
+    name: "users"
+    gid: 2000
+    state: present
+
+- name: Create the user accounts (starting with uid 2001)
+  ansible.builtin.user:
+    name: "user{{ item }}"
+    uid: "20{{ item }}"
+    group: "users"
+    home: "{{ local_nfs_mount_point }}/home/user{{ item }}"
+    create_home: true
+    shell: /bin/bash
+    password: "{{ local_users_accounts_password }}"
+    generate_ssh_key: true
+    ssh_key_comment: "user{{ item }}_slurm_cluster@ansible-generated"
+    state: present
+    ssh_key_file: .ssh/id_ed25519
+    ssh_key_type: ed25519
+  loop: "{{ query('sequence', 'count=' ~ local_users_accounts ~ ' format=%02u') }}"

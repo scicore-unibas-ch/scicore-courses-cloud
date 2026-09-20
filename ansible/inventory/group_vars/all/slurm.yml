@@ -6,7 +6,45 @@
 slurm_install_controller_group: slurm_master
 slurm_install_workers_group: slurm_workers
 slurm_install_submit_group: slurm_submit_hosts
-slurm_install_manage_etc_hosts: true
+# The OpenStack tenant DNS resolves every VM (<name>.zhw.compute.local, short
+# names via the DHCP search domain), and a node created on demand is not in
+# any /etc/hosts anyway.
+slurm_install_manage_etc_hosts: false
+
+# Configless: only the slurm master holds slurm.conf; the login node (sackd)
+# and the compute nodes (slurmd --conf-server) fetch it from slurmctld. A
+# dynamically created node has no config of its own, so this is required by
+# the cloud scheduling below.
+slurm_install_configless: true
+
+# Elastic compute nodes: slurmctld creates a VM when jobs need one and
+# deletes it after slurm_install_cloud_suspend_time idle seconds. The VMs are
+# created from the image built by playbooks/build-compute-image.yml.
+slurm_install_cloud_scheduling: true
+slurm_install_cloud_image: course-compute-node
+slurm_install_cloud_nodes:
+  - name: "compute-[01-04]"
+    cpus: 2
+    real_memory: 3500      # c002r004 has 4 GB; leave room for the OS
+    image: "{{ slurm_install_cloud_image }}"
+    flavor: c002r004
+    network: UNIBAS
+    keypair: opentofu_key
+    security_groups:
+      - opentofu_default
+# A course job should not wait ~10 min for its node to go away and come back,
+# but an idle VM should not linger either.
+slurm_install_cloud_suspend_time: 900
+slurm_install_cloud_resume_timeout: 900
+
+# Credentials for the resume/suspend programs: the application credential
+# opentofu/slurm-master.tf creates, written to
+# inventory/group_vars/slurm_master/openstack_app_credential.yml (gitignored).
+slurm_install_cloud_auth_url: https://identity.compute.cloud.switch.ch/v3
+slurm_install_cloud_region_name: zhw
+slurm_install_cloud_application_credential_id: "{{ slurm_master_openstack_app_cred_id }}"
+slurm_install_cloud_application_credential_secret: "{{ slurm_master_openstack_app_cred_secret }}"
+
 
 slurm_install_cluster_name: slurm-cluster
 

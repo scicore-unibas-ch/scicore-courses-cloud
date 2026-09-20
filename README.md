@@ -65,6 +65,40 @@ $> ansible course -m shell -a 'uname -r'
 $> ansible-playbook playbooks/site.yml
 ```
 
+## Compute nodes (elastic)
+
+The cluster keeps only three machines running: the login node, the NFS server
+and the slurm master. Compute nodes are created by slurmctld when jobs need
+them and deleted after 15 idle minutes (`slurm_install_cloud_*` in
+`ansible/inventory/group_vars/all/slurm.yml`), so `slurm_worker_count` is 0.
+
+They boot from an image that must be built once per deployment, after the
+cluster is up (the build reads the munge key from the slurm master and mounts
+the NFS share):
+
+```bash
+$> cd ansible/
+$> ansible-playbook playbooks/build-compute-image.yml      -e compute_image_name=course-compute-node-2026-09-20
+```
+
+The playbook boots a builder VM, applies the Slurm compute-node role and the
+`course_compute_node` role (the same users, NFS mount and cvmfs client the
+permanent hosts get), cleans it, snapshots it to a **private** image and
+deletes the builder. Then point `slurm_install_cloud_image` at the new name
+and re-run `ansible-playbook playbooks/site.yml`.
+
+`sinfo` shows the nodes as `idle~` while they do not exist. Submitting a job
+creates one; `/var/log/slurm/dynamic_nodes.log` on the slurm master records
+every create and delete (warnings and errors also go to syslog).
+
+Two consequences of nodes coming and going:
+
+- **Compute nodes change their SSH host key** every time they are re-created,
+  so `known_hosts` warns. The course users already get
+  `StrictHostKeyChecking no`.
+- **DNS caching is off** on the three permanent machines: a re-created node
+  keeps its name but gets a new IP.
+
 ## Stop and destroy all the machines
 
 ```bash
