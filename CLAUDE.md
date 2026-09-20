@@ -4,22 +4,23 @@ OpenTofu + Ansible for the sciCORE course clusters on the SWITCH OpenStack
 cloud (region `zhw`). `opentofu/` boots the VMs, `ansible/` configures them;
 hosts land in inventory groups from the VM tags (`inventory/openstack.yml`).
 
-## Status (2026-09-18)
+## Status (2026-09-20)
 
 **Slurm now comes from the `pescobar.slurm` collection** (role
 `slurm_install`, github.com/pescobar/ansible-collection-slurm, cloned at
 `../ansible-collection-slurm`), replacing the old `scicore.slurm` role
-(`../ansible-role-slurm`, reference only — do not modify it). PRs #29–#44
+(`../ansible-role-slurm`, reference only — do not modify it). PRs #29–#47
 are merged.
 
 - **Ubuntu 26.04** everywhere (`dev.tfvars`/`prod.tfvars`): its archive Slurm
   is 25.11, the floor for the collection's accounting module. 24.04 ships
   23.11.
-- **Static Slurm config** — no configless, no cloud/elastic scheduling. The
-  old `slurm.conf.course.j2` was deleted (it was a half-migrated cloud config:
-  `SuspendTime` with no suspend script deployed, node lines taking
-  `CoresPerSocket` from the threads-per-core fact). Recover it from git
-  history when the cloud-scheduling work starts.
+- **Configless, with elastic compute nodes** (see the section below): only
+  the slurm master holds `slurm.conf`, the login node runs `sackd`, and the
+  compute nodes are created on demand from a prepared image. The old
+  `slurm.conf.course.j2` was deleted long before that (a half-migrated cloud
+  config) and is not worth recovering: the collection renders the cloud
+  settings now.
 - Slurm runs in **its own play** in `configure.yml` (`hosts: slurm`), not
   `import_role` + `when`: the role's `run_once` munge-key read must not depend
   on which host is first in the play.
@@ -63,11 +64,12 @@ next dist-upgrade swapped 15 `r-cran-*` packages (now installed after the pin).
 `opentofu/slurm-master.tf` creates the slurm master's application credential
 (#44).
 
-## Current work: configless + elastic compute nodes
+## Elastic compute nodes (DONE 2026-09-20, merged and verified live)
 
-**Wired up 2026-09-20 (not yet deployed).** The collection side is merged
-(pescobar/ansible-collection-slurm PRs #6 configless, #7 elastic nodes,
-#8 compute-node image) and this repo now uses it:
+**All merged:** this repo's PRs #46 (wiring) and #47 (the fixes the first
+live run needed, `deploy.yml`, `cleanup.yml`); the collection's #6
+configless, #7 elastic nodes, #8 compute-node image, #9 the live-cloud
+fixes + cleanup playbook. How it is set up:
 
 - `group_vars/all/slurm.yml`: `slurm_install_configless: true`,
   `slurm_install_manage_etc_hosts: false`, `slurm_install_cloud_scheduling:
@@ -100,8 +102,8 @@ registered over configless), the job ran and was recorded in accounting, with
 `/shared` and `/cvmfs` both working on the created node; `scontrol update
 state=POWER_DOWN_FORCE` deleted the VM by its recorded id and left no volume.
 
-**What the first live run cost us** (all fixed, see this repo's PR #47 and the
-collection's #9): SWITCH flavors have disk=0 so everything must boot from a
+**What the first live run cost us** (all fixed and merged, this repo's #47 and
+the collection's #9): SWITCH flavors have disk=0 so everything must boot from a
 volume; play vars in the collection's build playbook overrode this repo's
 inventory (`volume_size`, and `compute_image_extra_roles`, which would have
 produced an image with no course configuration); the implicit localhost
@@ -111,6 +113,11 @@ responding") until ssh keepalives and ClientAliveCountMax 20 were in place;
 and handlers never flushed before the image was snapshotted, so the first
 image had no /cvmfs (`cvmfs_config setup` is a handler).
 
+
+**Not done yet:** the whole flow has only run once, on dev, with a single
+job; a course-sized run (30 users, several nodes at once) has not been tried,
+and `ResumeRate`/`SuspendRate` (4/min) are untested under that load. The
+cluster from that test was destroyed and both test images deleted.
 
 Goal: only `login-node`, `nfs-server` and `slurm-master` stay up; compute
 nodes are created when jobs are queued and deleted when idle. Decisions taken
@@ -170,6 +177,10 @@ Order of work:
    `group_vars/all/slurm.yml`) to ansible-vault.
 3. Consider declaring the course accounts/users with the collection's
    `slurm_acct` role instead of the lua auto-add plugin.
+4. Try the elastic setup at course scale before a real course: 30 users, a
+   burst of jobs needing several nodes at once (`ResumeRate`/`SuspendRate`
+   are 4/min and untested under load), and check how long the first job of
+   the morning waits.
 
 ## Gotchas found the hard way
 
