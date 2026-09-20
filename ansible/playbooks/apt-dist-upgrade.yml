@@ -7,10 +7,16 @@
 
   tasks:
 
+    # This is the first apt task after `tofu apply`, so the VMs booted
+    # minutes ago and unattended-upgrades may still hold the dpkg lock. The
+    # module waits only 60 s by default and the play would fail with
+    # "Unable to acquire the dpkg frontend lock"; wait it out instead. Later
+    # apt tasks do not need this: this one has already waited.
     - name: Perform a dist-upgrade.
       ansible.builtin.apt:
         upgrade: dist
         update_cache: yes
+        lock_timeout: 900
 
     - name: Check if a reboot is required
       ansible.builtin.stat:
