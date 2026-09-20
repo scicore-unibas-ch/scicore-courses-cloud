@@ -8,6 +8,10 @@
 # slurm.conf can point at it from the first run.
 compute_image_name: "{{ slurm_install_cloud_image }}"
 
+# No cloud nodes means no image to build: deploy.yml imports the build
+# unconditionally, and this makes it a no-op for a static cluster.
+compute_image_enabled: "{{ slurm_install_cloud_scheduling }}"
+
 # An image of that name already there means: leave it alone. That lets
 # deploy.yml run the build every time and only pay for it once. Pass
 #   -e compute_image_when_exists=replace
