@@ -1,0 +1,24 @@
+---
+# What playbooks/build-compute-image.yml boots the builder VM from. These are
+# read on the control host (the play that talks to the OpenStack API), so
+# they live in group_vars/all rather than in the builder's own group_vars.
+# The builder-side settings are in group_vars/_compute_image_builder/.
+
+# The image playbooks/deploy.yml keeps in place. Its name is stable so
+# slurm.conf can point at it from the first run.
+compute_image_name: "{{ slurm_install_cloud_image }}"
+
+# An image of that name already there means: leave it alone. That lets
+# deploy.yml run the build every time and only pay for it once. Pass
+#   -e compute_image_when_exists=replace
+# to rebuild it after changing what a compute node contains.
+compute_image_when_exists: skip
+compute_image_base: "Ubuntu 26.04 (Switch Cloud)"
+compute_image_flavor: c002r004
+compute_image_network: UNIBAS
+compute_image_keypair: opentofu_key
+compute_image_security_groups:
+  - opentofu_default
+# SWITCH flavors have disk=0: the builder boots from a volume, and the image
+# is uploaded from that volume once the builder is gone.
+compute_image_volume_size: 20

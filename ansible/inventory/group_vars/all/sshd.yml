@@ -2,4 +2,7 @@
 
 sshd_config:
   ClientAliveInterval: 60
+  # 60 s x 20 = 20 min before a quiet client is dropped. The default of 3
+  # (3 min) cut the ansible tunnel during long tasks.
+  ClientAliveCountMax: 20
   PasswordAuthentication: yes

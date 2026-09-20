@@ -87,14 +87,29 @@ next dist-upgrade swapped 15 `r-cran-*` packages (now installed after the pin).
   (it needs its own ssh/ProxyCommand and nfs vars: the host is added at run
   time and is in no other group).
 
-**Order of operations on a fresh deployment:** `tofu apply` -> `site.yml`
-(3 machines) -> `playbooks/build-compute-image.yml -e compute_image_name=...`
--> point `slurm_install_cloud_image` at it -> `site.yml` again -> submit a job
-and watch `/var/log/slurm/dynamic_nodes.log` on the slurm master.
+**Order of operations on a fresh deployment:** `tofu apply` ->
+`playbooks/deploy.yml` (site.yml + the compute-node image, built only when
+missing) -> submit a job and watch `/var/log/slurm/dynamic_nodes.log` on the
+slurm master. The image name is stable, so nothing has to be edited between
+steps; rebuild it with `-e compute_image_when_exists=replace`.
 
-**Still unverified against the real cloud:** the resume/suspend programs, the
-image build's boot/snapshot/delete, and whether a created node registers and
-runs a job. That is the next session's work.
+**Verified on the real cloud 2026-09-20** (dev deployment, 3 VMs + elastic
+nodes): `site.yml` clean in 14 min; the image build produced a private image;
+`sbatch` as user01 created compute-01 (~1m50s VM boot, then slurmd
+registered over configless), the job ran and was recorded in accounting, with
+`/shared` and `/cvmfs` both working on the created node; `scontrol update
+state=POWER_DOWN_FORCE` deleted the VM by its recorded id and left no volume.
+
+**What the first live run cost us** (all fixed, see this repo's PR #47 and the
+collection's #9): SWITCH flavors have disk=0 so everything must boot from a
+volume; play vars in the collection's build playbook overrode this repo's
+inventory (`volume_size`, and `compute_image_extra_roles`, which would have
+produced an image with no course configuration); the implicit localhost
+inherits no group_vars (hence `inventory/localhost.yml`); the login node
+dropped the ansible tunnel during long tasks ("Timeout, client not
+responding") until ssh keepalives and ClientAliveCountMax 20 were in place;
+and handlers never flushed before the image was snapshotted, so the first
+image had no /cvmfs (`cvmfs_config setup` is a handler).
 
 
 Goal: only `login-node`, `nfs-server` and `slurm-master` stay up; compute
