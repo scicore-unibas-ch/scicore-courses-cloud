@@ -1,0 +1,19 @@
+---
+# Delete what `tofu destroy` cannot see: the compute nodes slurmctld created
+# and, if asked, the compute-node image.
+#
+#   cd ansible/
+#   ansible-playbook playbooks/cleanup.yml --check   # preview
+#   ansible-playbook playbooks/cleanup.yml           # delete leftover nodes
+#
+# The image survives by default (it is reusable, and a deleted one cannot be
+# recovered). To remove it as well, at the end of a course:
+#
+#   ansible-playbook playbooks/cleanup.yml \
+#     -e '{"slurm_cleanup_images": ["course-compute-node"]}'
+#
+# Run this BEFORE `tofu destroy`, or after it: it only needs the OpenStack
+# credentials, not the cluster.
+
+- name: Delete the leftover compute nodes and images
+  ansible.builtin.import_playbook: pescobar.slurm.cleanup_cloud_resources

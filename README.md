@@ -35,6 +35,27 @@ $> openstack server list
 The openstack client also reads `~/.config/openstack/clouds.yaml` instead of
 an openrc file; select an entry from it with `export OS_CLOUD=<cloud-name>`.
 
+## Two kinds of cluster
+
+The same code deploys the cluster in either shape, and **both run Slurm in
+[configless mode](https://slurm.schedmd.com/configless_slurm.html)**: only
+the slurm master holds `slurm.conf`, the login node (`sackd`) and the compute
+nodes (`slurmd --conf-server`) fetch it from slurmctld.
+
+| | permanent machines | compute nodes | pick it when |
+|---|---|---|---|
+| **dynamic** (default) | login node, NFS server, slurm master | created by slurmctld when jobs need them, deleted after 15 idle minutes | a course with bursts of work; nothing is paid for while idle |
+| **static** | the three above plus the workers | always running | short courses, or when jobs must start without waiting ~2 min for a VM |
+
+What selects the shape:
+
+| | `slurm_worker_count` (tfvars) | `slurm_install_cloud_scheduling` (group_vars/all/slurm.yml) |
+|---|---|---|
+| dynamic | `0` | `true` |
+| static | the number of workers | `false` |
+
+Both can be on at once: permanent workers **and** cloud nodes for bursts.
+
 ## Booting the machines (OpenTofu)
 
 Environment-specific values (flavors, volume sizes, image names, network names) are defined
@@ -56,14 +77,47 @@ $> tofu apply -var-file=environments/prod.tfvars
 $> openstack server list
 ```
 
+With `slurm_worker_count = 0` (the default) this boots the three permanent
+machines. Set it to the number of workers you want for a static cluster.
+
 ## Configuring the machines (ansible)
 
 ```bash
 $> cd ansible/
 $> ansible-galaxy install -r requirements.yml
-$> ansible course -m shell -a 'uname -r'
+$> ansible course -m shell -a 'uname -r'      # check every machine answers
+```
+
+### A dynamic cluster (the default)
+
+One command configures the machines and builds the image the compute nodes
+boot from:
+
+```bash
+$> ansible-playbook playbooks/deploy.yml
+```
+
+The image is built only when it is missing, so running this again is cheap.
+See [Compute nodes (elastic)](#compute-nodes-elastic) below for what the
+build does and how to rebuild it.
+
+### A static cluster
+
+Set `slurm_worker_count` in the tfvars file and turn the cloud nodes off in
+`ansible/inventory/group_vars/all/slurm.yml`:
+
+```yaml
+slurm_install_cloud_scheduling: false
+```
+
+Then no image is needed, and `site.yml` is the whole job:
+
+```bash
 $> ansible-playbook playbooks/site.yml
 ```
+
+`deploy.yml` also works here: with cloud scheduling off it just runs
+`site.yml` and builds nothing.
 
 ## Compute nodes (elastic)
 
@@ -109,6 +163,24 @@ Two consequences of nodes coming and going:
   keeps its name but gets a new IP.
 
 ## Stop and destroy all the machines
+
+`tofu destroy` removes the three permanent machines, but **not** the compute
+nodes: slurmctld created them, so they are not in the OpenTofu state and a
+destroy leaves them running. Clean them up first (or afterwards):
+
+```bash
+$> cd ansible/
+$> ansible-playbook playbooks/cleanup.yml --check   # preview
+$> ansible-playbook playbooks/cleanup.yml
+```
+
+At the end of a course, to delete the compute-node image too:
+
+```bash
+$> ansible-playbook playbooks/cleanup.yml \
+     -e '{"slurm_cleanup_images": ["course-compute-node"]}'
+```
+
 
 ```bash
 $> cd opentofu/
