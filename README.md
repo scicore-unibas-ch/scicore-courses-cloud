@@ -95,8 +95,10 @@ permanent hosts get), cleans it, uploads it as a **private** image and
 deletes the builder.
 
 `sinfo` shows the nodes as `idle~` while they do not exist. Submitting a job
-creates one; `/var/log/slurm/dynamic_nodes.log` on the slurm master records
-every create and delete (warnings and errors also go to syslog).
+creates one, which takes about two minutes (the VM boots, then slurmd
+registers with the slurm master); `/var/log/slurm/dynamic_nodes.log` on the
+slurm master records every create and delete (warnings and errors also go to
+syslog).
 
 Two consequences of nodes coming and going:
 
