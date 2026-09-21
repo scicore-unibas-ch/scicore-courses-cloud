@@ -62,7 +62,8 @@ slurm_install_dbd_storage_password: aadAD432saAdfaoiu
 # on their first job submission
 slurm_install_job_submit_lua_template: job_submit_autoadd.lua.j2
 
-# cloud VMs can be slow to answer
+# cloud VMs can be slow to answer. Slurm wants UnkillableStepTimeout to be
+# at least 5x MessageTimeout, or every daemon logs an error on startup.
 slurm_install_slurm_conf_extra: |
   MessageTimeout=60
-  UnkillableStepTimeout=180
+  UnkillableStepTimeout=300
