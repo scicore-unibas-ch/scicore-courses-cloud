@@ -1,20 +1,23 @@
 ---
 
 local_r_cran_packages:
-  - remotes
+  - biocmanager
+  - ggplot2
   - markdown
   - pheatmap
+  - remotes
   - statmod
 
 local_r_bioconductor_packages:
-  - deseq2
-  - apeglm
-  - edger
   - annotationhub
+  - apeglm
   - clusterprofiler
-  - org.mm.eg.db
-  - org.hs.eg.db
+  - deseq2
+  - edger
   - ggtree
+  - org.hs.eg.db
+  - org.mm.eg.db
+  - reactomepa
 
-local_rstudio_server_version: "2026.01.2-418"
+local_rstudio_server_version: "2026.09.0-174"
 local_rstudio_server_package: "https://download2.rstudio.org/server/jammy/amd64/rstudio-server-{{ local_rstudio_server_version }}-amd64.deb"
