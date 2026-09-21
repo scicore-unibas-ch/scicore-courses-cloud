@@ -53,3 +53,19 @@
     user: ubuntu
     key: "{{ item }}"
   loop: "{{ local_teachers_ssh_keys }}"
+
+# Warm the cvmfs cache into the image: an elastic node is created on demand
+# and would otherwise pay the first fetch during a job. The cleanup in
+# pescobar.slurm.slurm_compute_image leaves /var/lib/cvmfs alone, so the
+# cache survives into the snapshot. Same stacks as playbooks/cvmfs-presync.yml.
+- name: Presync the cvmfs cache
+  ansible.builtin.shell: |
+    source {{ item }}
+    module spider &> /dev/null
+    module av &> /dev/null
+  args:
+    executable: /bin/bash
+  loop:
+    - /cvmfs/software.eessi.io/versions/{{ cvmfs_client_eessi_version }}/init/bash
+    - /cvmfs/soft.computecanada.ca/config/profile/bash.sh
+  changed_when: false  # only warms the cvmfs cache, changes nothing

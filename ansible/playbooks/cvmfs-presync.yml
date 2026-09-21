@@ -9,7 +9,7 @@
 
     - name: Load the EESSI software stack and list the available software
       ansible.builtin.shell: |
-        source /cvmfs/software.eessi.io/versions/2023.06/init/bash
+        source /cvmfs/software.eessi.io/versions/{{ cvmfs_client_eessi_version }}/init/bash
         module spider &> /dev/null
         #module load Trimmomatic FastQC Salmon Subread &> /dev/null
       args:

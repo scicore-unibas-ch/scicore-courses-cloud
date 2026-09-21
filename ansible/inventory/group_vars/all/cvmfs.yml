@@ -1,0 +1,7 @@
+---
+# Settings for the pescobar.cvmfs_client role. It defaults to this same EESSI
+# version, but the presync tasks (playbooks/cvmfs-presync.yml and
+# custom_roles/course_compute_node) run outside the role, where its defaults
+# are not in scope, so the cluster sets it here for everyone.
+
+cvmfs_client_eessi_version: "2025.06"
