@@ -54,18 +54,35 @@
     key: "{{ item }}"
   loop: "{{ local_teachers_ssh_keys }}"
 
-# cvmfs_config setup is a handler in pescobar.cvmfs_client and the build
-# playbook flushes handlers only after every site role, i.e. after the
-# presync below: without this the autofs map is not installed yet and
-# /cvmfs is empty.
-- name: Apply the pending cvmfs configuration
-  ansible.builtin.meta: flush_handlers
+# pescobar.cvmfs_client does this in a handler, which the build playbook
+# flushes only after every site role - and only if a task reported changed.
+# The presync below needs /cvmfs mounted now, so set it up explicitly: the
+# command is idempotent.
+- name: Set up cvmfs now
+  ansible.builtin.command: cvmfs_config setup
+  changed_when: false
+
+# autofs mounts a repo on first access, so probing is what actually mounts
+# it; retry because the config repo has to come down first.
+- name: Wait for the cvmfs repos to mount
+  ansible.builtin.command: "cvmfs_config probe {{ item }}"
+  loop:
+    - software.eessi.io
+    - soft.computecanada.ca
+  changed_when: false
+  register: _cvmfs_probe
+  until: _cvmfs_probe is succeeded
+  retries: 5
+  delay: 10
 
 # Warm the cvmfs cache into the image: an elastic node is created on demand
 # and would otherwise pay the first fetch during a job. The cleanup in
 # pescobar.slurm.slurm_compute_image leaves /var/lib/cvmfs alone, so the
 # cache survives into the snapshot. Same stacks as playbooks/cvmfs-presync.yml.
+# become: false like playbooks/cvmfs-presync.yml: the env modules do not
+# load for root, and the cvmfs cache is system-wide either way.
 - name: Presync the cvmfs cache
+  become: false
   ansible.builtin.shell: |
     source {{ item }}
     module spider &> /dev/null
