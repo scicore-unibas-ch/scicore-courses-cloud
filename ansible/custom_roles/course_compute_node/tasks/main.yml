@@ -66,6 +66,6 @@
   args:
     executable: /bin/bash
   loop:
-    - /cvmfs/software.eessi.io/versions/2023.06/init/bash
+    - /cvmfs/software.eessi.io/versions/{{ cvmfs_client_eessi_version }}/init/bash
     - /cvmfs/soft.computecanada.ca/config/profile/bash.sh
   changed_when: false  # only warms the cvmfs cache, changes nothing
