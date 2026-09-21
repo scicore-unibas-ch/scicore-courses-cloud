@@ -7,6 +7,15 @@
 # These are the same roles and tasks configure.yml applies to the permanent
 # hosts, so a dynamically created node matches the rest of the cluster.
 
+# The image ships whatever the base image has, so upgrade it here: a node
+# created on demand has no time to patch itself before it runs jobs. The
+# first-boot dpkg lock is already waited out by the builder play in
+# pescobar.slurm.build_compute_image.
+- name: Perform a dist-upgrade
+  ansible.builtin.apt:
+    upgrade: dist
+    update_cache: true
+
 - name: Configure timesyncd time
   ansible.builtin.include_role:
     name: wf72.systemd_timesyncd
