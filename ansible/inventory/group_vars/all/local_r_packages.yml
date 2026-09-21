@@ -19,5 +19,5 @@ local_r_bioconductor_packages:
   - org.mm.eg.db
   - reactomepa
 
-local_rstudio_server_version: "2026.01.2-418"
+local_rstudio_server_version: "2026.09.0-174"
 local_rstudio_server_package: "https://download2.rstudio.org/server/jammy/amd64/rstudio-server-{{ local_rstudio_server_version }}-amd64.deb"
