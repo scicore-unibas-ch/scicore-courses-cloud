@@ -54,6 +54,13 @@
     key: "{{ item }}"
   loop: "{{ local_teachers_ssh_keys }}"
 
+# cvmfs_config setup is a handler in pescobar.cvmfs_client and the build
+# playbook flushes handlers only after every site role, i.e. after the
+# presync below: without this the autofs map is not installed yet and
+# /cvmfs is empty.
+- name: Apply the pending cvmfs configuration
+  ansible.builtin.meta: flush_handlers
+
 # Warm the cvmfs cache into the image: an elastic node is created on demand
 # and would otherwise pay the first fetch during a job. The cleanup in
 # pescobar.slurm.slurm_compute_image leaves /var/lib/cvmfs alone, so the
