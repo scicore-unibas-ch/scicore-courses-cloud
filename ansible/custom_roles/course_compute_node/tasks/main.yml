@@ -1,11 +1,12 @@
 ---
-# Everything a course compute node needs besides Slurm itself, applied to the
-# VM that becomes the compute-node image. The Slurm side (slurmd, munge key,
-# configless) comes from pescobar.slurm.slurm_compute_image, and the image is
-# built by playbooks/build-compute-image.yml.
+# What the VM that becomes the compute-node image needs besides Slurm itself.
+# The Slurm side (slurmd, munge key, configless) comes from
+# pescobar.slurm.slurm_compute_image, and the image is built by
+# playbooks/build-compute-image.yml.
 #
-# These are the same roles and tasks configure.yml applies to the permanent
-# hosts, so a dynamically created node matches the rest of the cluster.
+# Everything shared with the permanent hosts is in course_common, applied by
+# playbooks/configure.yml as well, so a node created on demand matches the
+# rest of the cluster. Only the image-specific parts are here.
 
 # The image ships whatever the base image has, so upgrade it here: a node
 # created on demand has no time to patch itself before it runs jobs. The
@@ -16,64 +17,13 @@
     upgrade: dist
     update_cache: true
 
-- name: Configure timesyncd time
+- name: Apply the configuration every course machine gets
   ansible.builtin.include_role:
-    name: wf72.systemd_timesyncd
-
-- name: Install the basic packages
-  ansible.builtin.apt:
-    name: "{{ local_common_packages_to_install }}"
-    cache_valid_time: 600
-  when:
-    - local_common_packages_to_install is defined
-    - local_common_packages_to_install | length > 0
-
-- name: Mount the NFS shares
-  ansible.builtin.include_role:
-    name: ome.nfs_mount
-  when: nfs_share_mounts | length > 0
+    name: course_common
 
 # role_path, not playbook_dir: the build playbook lives in the collection.
 - name: Create the course user accounts
   ansible.builtin.include_tasks: "{{ role_path }}/../../tasks/course_users.yml"
-
-- name: Install the cvmfs client
-  ansible.builtin.include_role:
-    name: pescobar.cvmfs_client
-
-- name: Configure sshd
-  ansible.builtin.include_role:
-    name: willshersystems.sshd
-  when:
-    - sshd_config is defined
-    - sshd_config | length > 0
-
-- name: Add the teacher's ssh public keys to the ubuntu account
-  ansible.posix.authorized_key:
-    user: ubuntu
-    key: "{{ item }}"
-  loop: "{{ local_teachers_ssh_keys }}"
-
-# pescobar.cvmfs_client does this in a handler, which the build playbook
-# flushes only after every site role - and only if a task reported changed.
-# The presync below needs /cvmfs mounted now, so set it up explicitly: the
-# command is idempotent.
-- name: Set up cvmfs now
-  ansible.builtin.command: cvmfs_config setup
-  changed_when: false
-
-# autofs mounts a repo on first access, so probing is what actually mounts
-# it; retry because the config repo has to come down first.
-- name: Wait for the cvmfs repos to mount
-  ansible.builtin.command: "cvmfs_config probe {{ item }}"
-  loop:
-    - software.eessi.io
-    - soft.computecanada.ca
-  changed_when: false
-  register: _cvmfs_probe
-  until: _cvmfs_probe is succeeded
-  retries: 5
-  delay: 10
 
 # Warm the cvmfs cache into the image: an elastic node is created on demand
 # and would otherwise pay the first fetch during a job. The cleanup in
