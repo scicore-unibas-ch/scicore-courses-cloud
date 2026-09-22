@@ -14,9 +14,10 @@
 
   tasks:
 
-    # A compute node deleted and re-created keeps its name but gets a new IP.
-    # systemd-resolved would serve the old address from its cache for up to
-    # the record's TTL (1 h on this cloud), so turn the cache off.
+    # Only the permanent machines: they look up the compute nodes, which are
+    # deleted and re-created with the same name and a new IP, and
+    # systemd-resolved would serve the old address for up to the record's TTL
+    # (1 h on this cloud). A compute node itself keeps the default cache.
     - name: Create the systemd-resolved drop-in directory
       ansible.builtin.file:
         path: /etc/systemd/resolved.conf.d
@@ -39,20 +40,6 @@
       notify: Restart systemd-resolved
       tags: dns
 
-    - name: Configure timesyncd time
-      ansible.builtin.import_role:
-        name: wf72.systemd_timesyncd
-      tags: timesyncd
-
-    - name: Install some basic packages defined in variable "local_common_packages_to_install"
-      ansible.builtin.apt:
-        name: "{{ local_common_packages_to_install }}"
-        cache_valid_time: 600
-      when:
-        - local_common_packages_to_install is defined
-        - local_common_packages_to_install | length > 0
-      tags: common_packages
-
     - name: Format and mount local disks if defined
       ansible.builtin.import_role:
         name: aeriscloud.disk
@@ -68,11 +55,12 @@
     - name: Flush handlers so NFS server is restarted
       ansible.builtin.meta: flush_handlers
 
-    - name: Mount NFS shares if defined
+    # DNS, time, the common packages, the NFS mounts, cvmfs, sshd and the
+    # teacher keys: the same role the compute-node image applies, so the
+    # elastic nodes cannot drift from the permanent hosts.
+    - name: Apply the configuration every course machine gets
       ansible.builtin.import_role:
-        name: ome.nfs_mount
-      when: nfs_share_mounts | length > 0
-      tags: nfs_mounts
+        name: course_common
 
     - name: Create local accounts if defined
       ansible.builtin.import_role:
@@ -81,20 +69,6 @@
         - users is defined
         - users | length > 0
       tags: users
-
-    - name: Install the cvmfs client if machine is in the cvmfs_client group
-      ansible.builtin.import_role:
-        name: pescobar.cvmfs_client
-      when: "'cvmfs_clients' in group_names"
-      tags: cvmfs_clients
-
-    - name: Configure sshd if sshd_config is defined
-      ansible.builtin.import_role:
-        name: willshersystems.sshd
-      when:
-        - sshd_config is defined
-        - sshd_config | length > 0
-      tags: sshd
 
     - name: Configure users accounts in the cluster
       tags: user_accounts
@@ -163,13 +137,6 @@
                   StrictHostKeyChecking no
                   ServerAliveInterval 10
           loop: "{{ query('sequence', 'count=' ~ local_users_accounts ~ ' format=%02u') }}"
-
-        - name: Add the teacher's ssh public keys to the ubuntu account in every machine
-          ansible.posix.authorized_key:
-            user: ubuntu
-            key: "{{ item }}"
-          loop: "{{ local_teachers_ssh_keys }}"
-          tags: ssh_keys_teachers
 
         - name: Create a private ssh key for user ubuntu in login node
           become: true

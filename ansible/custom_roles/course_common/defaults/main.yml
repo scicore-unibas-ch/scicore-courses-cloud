@@ -1,0 +1,5 @@
+---
+# The permanent hosts carry the cvmfs_clients tag from OpenStack; the image
+# builder is added to the inventory at run time and has no tags, so its
+# group_vars set this to true.
+course_common_cvmfs: "{{ 'cvmfs_clients' in group_names }}"

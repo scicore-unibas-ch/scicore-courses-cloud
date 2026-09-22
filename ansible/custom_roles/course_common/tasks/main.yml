@@ -1,0 +1,74 @@
+---
+# What every course machine gets, permanent or elastic: playbooks/configure.yml
+# applies it to the hosts tofu created, and custom_roles/course_compute_node
+# applies it to the VM that becomes the compute-node image, so a node created
+# on demand matches the rest of the cluster.
+#
+# Only the group-independent part lives here. What depends on what a machine
+# is (extra disks, the NFS server, the accounts created on the NFS share, the
+# systemd-resolved cache) stays in configure.yml.
+
+- name: Configure timesyncd time
+  ansible.builtin.include_role:
+    name: wf72.systemd_timesyncd
+  tags: timesyncd
+
+- name: Install some basic packages defined in variable "local_common_packages_to_install"
+  ansible.builtin.apt:
+    name: "{{ local_common_packages_to_install }}"
+    cache_valid_time: 600
+  when:
+    - local_common_packages_to_install is defined
+    - local_common_packages_to_install | length > 0
+  tags: common_packages
+
+- name: Mount NFS shares if defined
+  ansible.builtin.include_role:
+    name: ome.nfs_mount
+  when: nfs_share_mounts | length > 0
+  tags: nfs_mounts
+
+- name: Install and mount cvmfs
+  when: course_common_cvmfs | bool
+  tags: cvmfs_clients
+  block:
+
+    - name: Install the cvmfs client
+      ansible.builtin.include_role:
+        name: pescobar.cvmfs_client
+
+    # The role does this in a handler, which runs at the end of the play (or
+    # not at all, if no task reported changed) - too late for anything that
+    # needs /cvmfs in this run, like the image presync. The command is
+    # idempotent, so run it here as well.
+    - name: Set up cvmfs now
+      ansible.builtin.command: cvmfs_config setup
+      changed_when: false
+
+    # autofs mounts a repo on first access, so probing is what actually
+    # mounts it; retry because the config repo has to come down first.
+    - name: Wait for the cvmfs repos to mount
+      ansible.builtin.command: "cvmfs_config probe {{ item }}"
+      loop:
+        - software.eessi.io
+        - soft.computecanada.ca
+      changed_when: false
+      register: _cvmfs_probe
+      until: _cvmfs_probe is succeeded
+      retries: 5
+      delay: 10
+
+- name: Configure sshd if sshd_config is defined
+  ansible.builtin.include_role:
+    name: willshersystems.sshd
+  when:
+    - sshd_config is defined
+    - sshd_config | length > 0
+  tags: sshd
+
+- name: Add the teacher's ssh public keys to the ubuntu account in every machine
+  ansible.posix.authorized_key:
+    user: ubuntu
+    key: "{{ item }}"
+  loop: "{{ local_teachers_ssh_keys }}"
+  tags: ssh_keys_teachers
