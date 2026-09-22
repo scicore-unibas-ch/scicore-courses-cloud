@@ -5,33 +5,8 @@
 # on demand matches the rest of the cluster.
 #
 # Only the group-independent part lives here. What depends on what a machine
-# is (extra disks, the NFS server, the accounts created on the NFS share)
-# stays in configure.yml.
-
-# A compute node deleted and re-created keeps its name but gets a new IP.
-# systemd-resolved would serve the old address from its cache for up to
-# the record's TTL (1 h on this cloud), so turn the cache off.
-- name: Create the systemd-resolved drop-in directory
-  ansible.builtin.file:
-    path: /etc/systemd/resolved.conf.d
-    state: directory
-    owner: root
-    group: root
-    mode: '0755'
-  tags: dns
-
-- name: Do not cache DNS answers (compute node IPs change)
-  ansible.builtin.copy:
-    content: |
-      # Ansible managed
-      [Resolve]
-      Cache=no
-    dest: /etc/systemd/resolved.conf.d/10-no-cache.conf
-    owner: root
-    group: root
-    mode: '0644'
-  notify: Restart systemd-resolved
-  tags: dns
+# is (extra disks, the NFS server, the accounts created on the NFS share, the
+# systemd-resolved cache) stays in configure.yml.
 
 - name: Configure timesyncd time
   ansible.builtin.include_role:

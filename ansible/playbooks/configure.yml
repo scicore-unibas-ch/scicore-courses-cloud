@@ -5,7 +5,40 @@
   gather_facts: true
   become: true
 
+  handlers:
+
+    - name: Restart systemd-resolved
+      ansible.builtin.systemd_service:
+        name: systemd-resolved
+        state: restarted
+
   tasks:
+
+    # Only the permanent machines: they look up the compute nodes, which are
+    # deleted and re-created with the same name and a new IP, and
+    # systemd-resolved would serve the old address for up to the record's TTL
+    # (1 h on this cloud). A compute node itself keeps the default cache.
+    - name: Create the systemd-resolved drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags: dns
+
+    - name: Do not cache DNS answers (compute node IPs change)
+      ansible.builtin.copy:
+        content: |
+          # Ansible managed
+          [Resolve]
+          Cache=no
+        dest: /etc/systemd/resolved.conf.d/10-no-cache.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart systemd-resolved
+      tags: dns
 
     - name: Format and mount local disks if defined
       ansible.builtin.import_role:
