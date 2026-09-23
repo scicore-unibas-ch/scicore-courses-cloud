@@ -80,11 +80,11 @@ $> openstack server list
 With `slurm_worker_count = 0` (the default) this boots the three permanent
 machines. Set it to the number of workers you want for a static cluster.
 
-`slurm_worker_flavor_name` is also the flavor the *elastic* compute nodes are
-created with: `tofu apply` writes it to
-`ansible/inventory/group_vars/all/compute_node_flavor.yml` (gitignored), the
-way it writes the slurm master's application credential, so the cluster
-Ansible configures matches the environment that was deployed. What a node of
+`slurm_worker_flavor_name` and `slurm_worker_boot_volume_size` also describe
+the *elastic* compute nodes: `tofu apply` writes them to
+`ansible/inventory/group_vars/all/compute_node.yml` (gitignored), the way it
+writes the slurm master's application credential, so the cluster Ansible
+configures matches the environment that was deployed. What a node of
 that flavor really has - CPUs, memory, topology - is measured by
 `playbooks/probe-compute-node.yml`, not written by hand.
 
