@@ -22,10 +22,14 @@
     - local_common_packages_to_install | length > 0
   tags: common_packages
 
+# default([]): only the nfs_clients group sets this, and a 'when' on
+# include_role is evaluated before the role's own defaults are in scope
+# (import_role used to hide that - it copies the 'when' onto the role's
+# tasks, where ome.nfs_mount's empty default applies).
 - name: Mount NFS shares if defined
   ansible.builtin.include_role:
     name: ome.nfs_mount
-  when: nfs_share_mounts | length > 0
+  when: nfs_share_mounts | default([]) | length > 0
   tags: nfs_mounts
 
 - name: Install and mount cvmfs
