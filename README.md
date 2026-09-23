@@ -182,11 +182,14 @@ $> ansible-playbook playbooks/cleanup.yml --check   # preview
 $> ansible-playbook playbooks/cleanup.yml
 ```
 
-At the end of a course, to delete the compute-node image too:
+That deletes the compute-node image as well. The image holds the cluster's
+munge key, so a node created from it cannot authenticate to the next
+cluster, which generates a new key - and `deploy.yml` builds a fresh image
+anyway. To keep it, when the cluster stays up and only leftover nodes are in
+the way:
 
 ```bash
-$> ansible-playbook playbooks/cleanup.yml \
-     -e '{"slurm_cleanup_images": ["course-compute-node"]}'
+$> ansible-playbook playbooks/cleanup.yml -e '{"slurm_cleanup_images": []}'
 ```
 
 
