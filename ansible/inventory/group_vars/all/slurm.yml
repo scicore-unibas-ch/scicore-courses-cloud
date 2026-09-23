@@ -32,10 +32,14 @@ slurm_install_cloud_image: course-compute-node
 # advertises. The file is gitignored - it describes the flavor this
 # environment uses.
 slurm_cloud_probe_facts_file: "{{ inventory_dir }}/group_vars/all/slurm_cloud_node_facts.yml"
+# The probes boot the plain Ubuntu image, not the compute-node image: a
+# flavor has the same CPUs and memory whatever it runs, and this way the
+# measurement does not wait for the image to be built.
+slurm_cloud_probe_image: "{{ compute_image_base }}"
 slurm_install_cloud_nodes:
   - name: "compute-[01-04]"
-    cpus: 2
-    real_memory: 3500      # c002r004 has 4 GB; leave room for the OS
+    # no cpus/real_memory: probe-compute-node.yml measures them from a VM of
+    # this flavor (slurm_cloud_node_facts.yml). Set them here to overrule it.
     image: "{{ slurm_install_cloud_image }}"
     flavor: c002r004
     network: UNIBAS

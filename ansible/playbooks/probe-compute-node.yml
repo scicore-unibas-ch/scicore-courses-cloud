@@ -3,19 +3,20 @@
 # used in slurm_install_cloud_nodes, read its CPUs, memory and topology,
 # delete it, and write the numbers to
 # inventory/group_vars/all/slurm_cloud_node_facts.yml (gitignored, it is
-# measured per environment).
+# measured per environment). That file is where slurm.conf's CPUs and
+# RealMemory come from.
 #
 #   cd ansible/
 #   ansible-playbook playbooks/probe-compute-node.yml
 #
-# The file is what slurm.conf's CPUs/RealMemory come from, so run this after
-# changing the flavor of a node group - `deploy.yml` does it for you, and an
-# existing file means 'already measured', so re-running costs nothing. To
-# measure again after a flavor change:
+# It boots the plain Ubuntu image (slurm_cloud_probe_image), so it needs only
+# the login node to reach the VM - no compute-node image, no Slurm. Run it
+# before site.yml, which deploy.yml does.
+#
+# A flavor already in the file is skipped, so re-running costs nothing. After
+# changing a node group's flavor, measure it again:
 #
 #   ansible-playbook playbooks/probe-compute-node.yml -e slurm_cloud_probe_refresh=true
-#
-# It boots from the compute-node image, so build that first.
 
 - name: Probe the flavors the compute nodes use
   ansible.builtin.import_playbook: pescobar.slurm.probe_cloud_node

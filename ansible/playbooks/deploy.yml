@@ -4,17 +4,16 @@
 #   cd ansible/
 #   ansible-playbook playbooks/deploy.yml
 #
-# 1. site.yml configures the three permanent machines (login node, NFS
+# 1. probe-compute-node.yml boots one VM of the compute nodes' flavor, reads
+#    what it really has (CPUs, memory, topology) and deletes it. It runs
+#    first so slurm.conf is right the first time; a flavor already measured
+#    is skipped, so this costs nothing on a re-run.
+# 2. site.yml configures the three permanent machines (login node, NFS
 #    server, slurm master), Slurm included.
-# 2. build-compute-image.yml builds the image the elastic compute nodes boot
+# 3. build-compute-image.yml builds the image the elastic compute nodes boot
 #    from - but only if it does not exist yet
 #    (compute_image_when_exists: skip, in group_vars/all/compute_image.yml),
 #    so running this playbook again costs nothing extra.
-# 3. probe-compute-node.yml boots one VM of the compute nodes' flavor and
-#    records what it really has (CPUs, memory, topology), again only if the
-#    facts file is missing.
-# 4. slurm.conf is rendered once more with those facts, so the cloud nodes
-#    are configured from a measured node and not from a guess.
 #
 # The image name is stable (slurm_install_cloud_image), so slurm.conf points
 # at it from the first run: the nodes are created on demand and the image is
@@ -25,63 +24,16 @@
 #   ansible-playbook playbooks/build-compute-image.yml \
 #     -e compute_image_when_exists=replace
 #
-# After changing the flavor of a node group, rebuild the numbers too:
+# After changing the flavor of a node group, measure it again (site.yml then
+# renders the new numbers into slurm.conf):
 #
 #   ansible-playbook playbooks/deploy.yml -e slurm_cloud_probe_refresh=true
+
+- name: Measure a compute node if it has not been measured
+  ansible.builtin.import_playbook: probe-compute-node.yml
 
 - name: Configure the cluster
   ansible.builtin.import_playbook: site.yml
 
 - name: Build the compute node image if it is missing
   ansible.builtin.import_playbook: build-compute-image.yml
-
-- name: Measure a compute node if it has not been measured
-  ansible.builtin.import_playbook: probe-compute-node.yml
-
-# The probe writes into inventory/group_vars/, which Ansible read before the
-# run started, so the facts have to be loaded explicitly here.
-- name: Apply the measured node facts to slurm.conf
-  hosts: slurm
-  gather_facts: true
-  become: true
-  tags: slurm
-
-  tasks:
-
-    - name: Look for the facts file
-      ansible.builtin.stat:
-        path: "{{ slurm_cloud_probe_facts_file }}"
-      register: _node_facts_file
-      delegate_to: localhost
-      become: false
-      run_once: true
-
-    - name: Stop here when nothing was measured
-      ansible.builtin.meta: end_play
-      when: not _node_facts_file.stat.exists
-
-    - name: Load the measured node facts
-      ansible.builtin.include_vars:
-        file: "{{ slurm_cloud_probe_facts_file }}"
-
-    # A cpus/real_memory written in the inventory beats the measured value
-    # (it is meant as a deliberate override), and group_vars/all/slurm.yml
-    # carries them so the first site.yml run has numbers before anything has
-    # been measured. Drop them for the flavors this file covers, so the
-    # measurement is what ends up in slurm.conf.
-    - name: Let the measured numbers replace the bootstrap ones
-      ansible.builtin.set_fact:
-        slurm_install_cloud_nodes: "{{ _unmeasured + _measured }}"
-      vars:
-        _facts: "{{ slurm_install_cloud_node_facts | default({}, true) }}"
-        _unmeasured: "{{ slurm_install_cloud_nodes
-                         | rejectattr('flavor', 'in', _facts) | list }}"
-        _measured: "{{ slurm_install_cloud_nodes
-                       | selectattr('flavor', 'in', _facts)
-                       | map('dict2items')
-                       | map('rejectattr', 'key', 'in', ['cpus', 'real_memory'])
-                       | map('items2dict') | list }}"
-
-    - name: Render slurm.conf again and reconfigure
-      ansible.builtin.include_role:
-        name: pescobar.slurm.slurm_install
