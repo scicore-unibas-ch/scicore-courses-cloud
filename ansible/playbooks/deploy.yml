@@ -4,9 +4,13 @@
 #   cd ansible/
 #   ansible-playbook playbooks/deploy.yml
 #
-# 1. site.yml configures the three permanent machines (login node, NFS
+# 1. probe-compute-node.yml boots one VM of the compute nodes' flavor, reads
+#    what it really has (CPUs, memory, topology) and deletes it. It runs
+#    first so slurm.conf is right the first time; a flavor already measured
+#    is skipped, so this costs nothing on a re-run.
+# 2. site.yml configures the three permanent machines (login node, NFS
 #    server, slurm master), Slurm included.
-# 2. build-compute-image.yml builds the image the elastic compute nodes boot
+# 3. build-compute-image.yml builds the image the elastic compute nodes boot
 #    from - but only if it does not exist yet
 #    (compute_image_when_exists: skip, in group_vars/all/compute_image.yml),
 #    so running this playbook again costs nothing extra.
@@ -19,6 +23,14 @@
 #
 #   ansible-playbook playbooks/build-compute-image.yml \
 #     -e compute_image_when_exists=replace
+#
+# After changing the flavor of a node group, measure it again (site.yml then
+# renders the new numbers into slurm.conf):
+#
+#   ansible-playbook playbooks/deploy.yml -e slurm_cloud_probe_refresh=true
+
+- name: Measure a compute node if it has not been measured
+  ansible.builtin.import_playbook: probe-compute-node.yml
 
 - name: Configure the cluster
   ansible.builtin.import_playbook: site.yml

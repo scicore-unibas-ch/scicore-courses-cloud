@@ -1,0 +1,15 @@
+---
+# The throwaway VMs playbooks/probe-compute-node.yml boots to measure what a
+# compute node of that flavor really has (pescobar.slurm adds them to this
+# group at run time).
+
+# No floating IP, so they are reached through the login node like every other
+# host (group_vars/all/ansible_ssh.yml cannot apply here: these hosts are
+# added at run time and are in no other group).
+ansible_user: ubuntu
+ansible_private_key_file: ~/.ssh/id_ed25519_tofu
+ansible_ssh_common_args: >-
+  -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=20
+  -o ProxyCommand="ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30
+  -o ServerAliveCountMax=20 -i {{ hostvars['login-node'].ansible_private_key_file }}
+  -W %h:%p -q {{ hostvars['login-node'].ansible_user }}@{{ hostvars['login-node'].ansible_ssh_host }}"
