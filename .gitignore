@@ -48,3 +48,6 @@ ansible/roles/
 ansible/collections/
 .venv
 .ansible/
+
+# measured by playbooks/probe-compute-node.yml, per environment
+ansible/inventory/group_vars/all/slurm_cloud_node_facts.yml

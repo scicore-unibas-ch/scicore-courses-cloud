@@ -25,6 +25,13 @@ slurm_install_cloud_scheduling: true
 # playbooks/build-compute-image.yml). The name is stable; rebuild it with
 # -e compute_image_when_exists=replace.
 slurm_install_cloud_image: course-compute-node
+
+# CPUs/RealMemory/topology for the cloud nodes are measured by
+# playbooks/probe-compute-node.yml, not written by hand: Slurm compares
+# RealMemory with what slurmd reports, and a VM has less than its flavor
+# advertises. The file is gitignored - it describes the flavor this
+# environment uses.
+slurm_cloud_probe_facts_file: "{{ inventory_dir }}/group_vars/all/slurm_cloud_node_facts.yml"
 slurm_install_cloud_nodes:
   - name: "compute-[01-04]"
     cpus: 2
