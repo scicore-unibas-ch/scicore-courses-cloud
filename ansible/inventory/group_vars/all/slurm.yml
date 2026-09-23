@@ -41,14 +41,16 @@ slurm_install_cloud_nodes:
     # no cpus/real_memory: probe-compute-node.yml measures them from a VM of
     # this flavor (slurm_cloud_node_facts.yml). Set them here to overrule it.
     image: "{{ slurm_install_cloud_image }}"
-    flavor: c002r004
+    # written by opentofu/compute-node.tf from the tfvars of the
+    # environment that was deployed
+    flavor: "{{ local_compute_node_flavor }}"
     network: UNIBAS
     keypair: opentofu_key
     security_groups:
       - opentofu_default
     # SWITCH flavors have disk=0, so a node boots from a volume created from
     # the image; it is deleted with the node.
-    volume_size: 20
+    volume_size: "{{ local_compute_node_volume_size }}"
 # A course job should not wait ~10 min for its node to go away and come back,
 # but an idle VM should not linger either.
 slurm_install_cloud_suspend_time: 900

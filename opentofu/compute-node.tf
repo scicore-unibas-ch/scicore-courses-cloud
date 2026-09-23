@@ -1,0 +1,19 @@
+# The elastic compute nodes are created by slurmctld, not by OpenTofu, so
+# their flavor lives in Ansible - but which flavor a deployment wants is an
+# environment decision, and that is what the tfvars files are. Write it into
+# the inventory, the same way slurm-master.tf writes the application
+# credential (both files are gitignored: they describe the deployment that
+# exists, not the repository).
+#
+# slurm_worker_flavor_name and slurm_worker_boot_volume_size are the same
+# answer for a static worker and for an elastic one: what a compute node of
+# this cluster is. An elastic node boots from a volume of that size created
+# from the image (SWITCH flavors have disk=0) and deleted with the node.
+resource "local_file" "ansible_compute_node" {
+  filename        = "${path.module}/../ansible/inventory/group_vars/all/compute_node.yml"
+  file_permission = "0644"
+  content = yamlencode({
+    local_compute_node_flavor      = var.slurm_worker_flavor_name
+    local_compute_node_volume_size = var.slurm_worker_boot_volume_size
+  })
+}
