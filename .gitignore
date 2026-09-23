@@ -51,3 +51,6 @@ ansible/collections/
 
 # measured by playbooks/probe-compute-node.yml, per environment
 ansible/inventory/group_vars/all/slurm_cloud_node_facts.yml
+
+# written by opentofu/compute-node-flavor.tf
+ansible/inventory/group_vars/all/compute_node_flavor.yml

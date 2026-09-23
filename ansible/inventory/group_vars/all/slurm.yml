@@ -41,7 +41,9 @@ slurm_install_cloud_nodes:
     # no cpus/real_memory: probe-compute-node.yml measures them from a VM of
     # this flavor (slurm_cloud_node_facts.yml). Set them here to overrule it.
     image: "{{ slurm_install_cloud_image }}"
-    flavor: c002r004
+    # written by opentofu/compute-node-flavor.tf from slurm_worker_flavor_name
+    # in the tfvars of the environment that was deployed
+    flavor: "{{ local_compute_node_flavor }}"
     network: UNIBAS
     keypair: opentofu_key
     security_groups:
